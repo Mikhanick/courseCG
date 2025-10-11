@@ -11,8 +11,8 @@
 #include "renderer/GraphicObject.h"
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
-    setFixedSize(800, 600);
+    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
+    setFixedSize(1920, 1200);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -21,9 +21,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
 
-    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.6, 0.7)));
+    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.01, 0.3)));
     GenerateCity(10);
 
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);

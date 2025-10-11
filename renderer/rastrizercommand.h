@@ -156,18 +156,18 @@ public:
             ZBuffer *shadowZBuffer = (i < shadowZBuffers.size()) ? shadowZBuffers[i].get() : nullptr;
 
             QVector3D lightDir = light->GetDirectionTo(frag.worldPos).normalized();
-            float NdotL = std::max(0.3f, QVector3D::dotProduct(normal, -lightDir));
+            float NdotL = std::max(0.6f, QVector3D::dotProduct(normal, -lightDir));
 
             float shadowFactor = 1.0f;
             if (QVector3D::dotProduct(normal, lightDir) > 0) {
-                shadowFactor = 0.4f;
+                shadowFactor = 0.035f;
             } else if (shadowZBuffer) {
                 shadowFactor = light->ComputeShadowFactor(frag.worldPos,
                                                           shadowZBuffer,
                                                           light->GetCamera().get());
             }
 
-            float shade = NdotL * shadowFactor;
+            float shade = fmin(NdotL, shadowFactor);
             maxShade = std::max(maxShade, shade);
         }
 

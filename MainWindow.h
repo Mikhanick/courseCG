@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QTimer>
 #include <QtGui/QVector3D>
+#include <QtGui/QVector2D>
 #include <memory>
 
 class Scene;
