@@ -137,13 +137,13 @@ void MainWindow::paintEvent(QPaintEvent* /*event*/) { // ✅ игнорируе�
 void MainWindow::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         m_mousePressed = true;
-        m_lastMousePos = QVector2D(event->position());
+        m_lastMousePos = QVector2D(event->pos());
     }
 }
 
 void MainWindow::mouseMoveEvent(QMouseEvent* event) {
     if (m_mousePressed) {
-        QVector2D currentPos(event->position());
+        QVector2D currentPos(event->pos());
         QVector2D delta = currentPos - m_lastMousePos;
 
         m_yaw += delta.x() * m_rotateSpeed;

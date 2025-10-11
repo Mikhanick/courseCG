@@ -3,7 +3,7 @@ CONFIG += c++20
 TARGET = RendererGUI
 TEMPLATE = app
 
-QMAKE_CXXFLAGS += -fopenmp
+QMAKE_CXXFLAGS += -fopenmp -std=c++20
 QMAKE_LFLAGS += -fopenmp
 
 SOURCES += \

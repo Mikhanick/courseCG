@@ -2,6 +2,7 @@
 #include <QtGui/QVector3D>
 #include <QtGui/QColor>
 #include "rastrizercommand.h"
+#include <cmath>
 
 class TriangleRasterizer {
 public:

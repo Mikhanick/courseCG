@@ -7,6 +7,7 @@
 #include <concepts>
 #include "ShadeBuffer.h"
 #include "Scene.h"
+#include <cmath>
 
 struct FragmentData
 {

@@ -1,0 +1,33 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "linux-qt",
+            "displayName": "Linux Qt",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build/cmake-build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "/usr/bin/gcc",
+                "CMAKE_CXX_COMPILER": "/usr/bin/g++"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "linux-qt-debug",
+            "configurePreset": "linux-qt",
+            "configuration": "Debug"
+        },
+        {
+            "name": "linux-qt-release",
+            "configurePreset": "linux-qt",
+            "configuration": "Release"
+        }
+    ]
+}
