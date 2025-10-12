@@ -21,7 +21,7 @@ float DistanceFromCenterCostStrategy::calculateCost(const AbstractRoad* road) co
     float distance = road2d.distanceToPoint(m_cityCenter);
 
     // Предположим, что максимальное расстояние — 1000 м (можно параметризовать)
-    const float maxDistance = 1000.0f;
+    const float maxDistance = 5000.0f;
     float normalizedDist = std::min(distance / maxDistance, 1.0f);
 
     // Чем ближе к центру — тем дороже: cost = 1 - normalizedDist

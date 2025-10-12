@@ -24,18 +24,18 @@ float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
     float length = getLength();
-    if (length < 20.0f) return; // слишком короткая дорога
+    if (length < 40.0f) return; // слишком короткая дорога
 
     // Доступная зона застройки: отступы от перекрёстков
-    float buildableLength = length - 20.0f; // 10 м с каждого конца
+    float buildableLength = length - 40.0f; // 10 м с каждого конца
     if (buildableLength <= 0) return;
 
     float buildableDepth = 40.0f; // глубина застройки от дороги
 
     // Простая упаковка: участки по 25 м в длину с большим зазором между ними
     const float plotLength = 25.0f;
-    const float gap = 8.0f; // Увеличенный зазор между участками (было 3.0f)
-    float currentPos = 10.0f; // начальный отступ
+    const float gap = 12.0f; // Увеличенный зазор между участками (было 3.0f)
+    float currentPos = 20.0f; // начальный отступ
 
     int totalPlots = static_cast<int>(buildableLength / (plotLength + gap));
     if (totalPlots <= 0) totalPlots = 1;

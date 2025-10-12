@@ -7,7 +7,7 @@ namespace City {
 GraphicObject SimpleBuildingSelector::select(
     const QRectF& availableArea, int population, float cost)
 {
-    float width = static_cast<float>(availableArea.width());
+    float width = static_cast<float>(availableArea.width()) * 0.8;
     float depth = static_cast<float>(availableArea.height());
 
     // Определяем тип здания по стоимости и населению

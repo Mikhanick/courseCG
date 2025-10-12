@@ -13,6 +13,7 @@
 #include "city/strategies/SimpleRoadGenerationStrategy.h"
 #include "city/strategies/DistanceFromCenterCostStrategy.h"
 #include "city/strategies/SimpleBuildingSelector.h"
+#include "city/strategies/SubdivisionRoadGenerationStrategy.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -147,8 +148,7 @@ void MainWindow::GenerateCityWithMap() {
     }
 
     // Создание генератора города с использованием новых классов
-    // Используем простую схему: одна дорога для тестирования
-    auto roadGen = std::make_unique<City::SimpleRoadGenerationStrategy>(); // Одна простая дорога
+    auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>(); 
     auto costStrategy = std::make_unique<City::DistanceFromCenterCostStrategy>(QVector2D(0, 0));
     auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
 
@@ -158,20 +158,16 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    // Генерация небольшого города: 0.04 км² = 200x200 метров, 1000 населения (много на одну дорогу)
-    m_cityMap->generate(40000.0f, 1000);
+    m_cityMap->generate(2000000.0f, 100000);
 
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
     
+    // Objects are already properly constructed with computed normals, add them directly
     for (auto& cityObj : objects) {
-        // Convert City::GraphicObject to renderer domain GraphicObject
         auto* newObj = new GraphicObject();
-        newObj->points = cityObj.points;
-        newObj->faces.reserve(cityObj.faces.size());
-        for (const auto& face : cityObj.faces) {
-            newObj->AddFace(face.index0, face.index1, face.index2, face.color);
-        }
+        newObj->points = std::move(cityObj.points);
+        newObj->faces = std::move(cityObj.faces);
         m_scene->AddObject(newObj);
     }
 }

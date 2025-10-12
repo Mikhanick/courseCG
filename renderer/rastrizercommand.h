@@ -161,7 +161,7 @@ public:
 
             float shadowFactor = 1.0f;
             if (QVector3D::dotProduct(normal, lightDir) > 0) {
-                shadowFactor = 0.035f;
+                shadowFactor = 0.35f;
             } else if (shadowZBuffer) {
                 shadowFactor = light->ComputeShadowFactor(frag.worldPos,
                                                           shadowZBuffer,
