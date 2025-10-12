@@ -9,6 +9,17 @@
 #include "renderer/Camera.h"
 #include "renderer/DirectionalLight.h"
 #include "renderer/GraphicObject.h"
+#include "city/core/CityMap.h"
+#include "city/strategies/SimpleRoadGenerationStrategy.h"
+#include "city/strategies/DistanceFromCenterCostStrategy.h"
+#include "city/strategies/SimpleBuildingSelector.h"
+#include <iostream>
+#include <algorithm>
+#include <cmath>
+
+using City::CityMap;
+using City::DistanceFromCenterCostStrategy;
+using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
@@ -19,12 +30,16 @@ MainWindow::MainWindow(QWidget* parent)
     m_yaw = 100.0f;
     m_pitch = -15.0f;
 
+    // Increase base movement speed by 9x total (3x previous increase + another 3x)
+    m_moveSpeed = 2.f; // Was 0.3f (0.1f * 3 * 3)
+    m_rotateSpeed = 0.5f;
+
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
     m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
 
-    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.01, 0.3)));
-    GenerateCity(10);
+    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.7, 0.3)));
+    GenerateCityWithMap(); // Use the new city map generation
 
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);
     m_timer.start(16);
@@ -101,6 +116,66 @@ void MainWindow::GenerateCity(int gridSize) {
     }
 }
 
+void MainWindow::GenerateCityWithMap() {
+    // Создание земли — зелёный квадрат под весь город, состоящий из меньших полигонов
+    const float groundSize = 200.0f; // Увеличенный размер для удлинненной дороги
+    const float tileSize = 20.0f; // Размер одного тайла земли
+    
+    // Создаем сетку из меньших квадратов вместо одного большого полигона
+    for (float x = -groundSize; x < groundSize; x += tileSize) {
+        for (float z = -groundSize; z < groundSize; z += tileSize) {
+            auto tile = new GraphicObject();
+            float maxX = qMin(x + tileSize, groundSize);
+            float maxZ = qMin(z + tileSize, groundSize);
+            
+            // Вершины тайла (квадрат в плоскости Y=0)
+            tile->AddPoint(QVector3D(x, 0, z));           // 0: левый-задний
+            tile->AddPoint(QVector3D(maxX, 0, z));        // 1: правый-задний
+            tile->AddPoint(QVector3D(maxX, 0, maxZ));     // 2: правый-передний
+            tile->AddPoint(QVector3D(x, 0, maxZ));        // 3: левый-передний
+
+            // Цвет земли — зелёный
+            QColor greenColor(34, 139, 34); // ForestGreen
+
+            // Грани тайла (исправленный порядок для правильного отображения сверху)
+            tile->AddFace(0, 2, 1, greenColor); // Изменен порядок точек для правильной нормали
+            tile->AddFace(0, 3, 2, greenColor); // Изменен порядок точек для правильной нормали
+
+            tile->ComputeFaceNormals();
+            m_scene->AddObject(tile);
+        }
+    }
+
+    // Создание генератора города с использованием новых классов
+    // Используем простую схему: одна дорога для тестирования
+    auto roadGen = std::make_unique<City::SimpleRoadGenerationStrategy>(); // Одна простая дорога
+    auto costStrategy = std::make_unique<City::DistanceFromCenterCostStrategy>(QVector2D(0, 0));
+    auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
+
+    m_cityMap = std::make_unique<City::CityMap>(
+        std::move(roadGen),
+        std::move(costStrategy),
+        std::move(buildingSelector)
+    );
+
+    // Генерация небольшого города: 0.04 км² = 200x200 метров, 1000 населения (много на одну дорогу)
+    m_cityMap->generate(40000.0f, 1000);
+
+    // Добавление объектов из карты города в сцену
+    auto objects = m_cityMap->exportToScene();
+    
+    for (auto& cityObj : objects) {
+        // Convert City::GraphicObject to renderer domain GraphicObject
+        auto* newObj = new GraphicObject();
+        newObj->points = cityObj.points;
+        newObj->faces.reserve(cityObj.faces.size());
+        for (const auto& face : cityObj.faces) {
+            newObj->AddFace(face.index0, face.index1, face.index2, face.color);
+        }
+        m_scene->AddObject(newObj);
+    }
+}
+
 void MainWindow::RenderScene() {
     m_renderer->Render(*m_scene, m_image); // ➤ вызываем метод рендерера
     update();
@@ -115,9 +190,15 @@ void MainWindow::UpdateCamera() {
     QVector3D front = rotation.map(QVector3D(0, 0, -1));
     front.normalize();
 
-    m_cameraPos += (m_keyW - m_keyS) * m_moveSpeed * front;
+    // Apply speed boost when Shift is pressed
+    float currentSpeed = m_moveSpeed;
+    if (m_keyShift) {
+        currentSpeed *= 3.0f; // Triple speed when Shift is pressed (increased from 2x to 3x)
+    }
+
+    m_cameraPos += (m_keyW - m_keyS) * currentSpeed * front;
     QVector3D right = QVector3D::crossProduct(front, QVector3D(0, 1, 0)).normalized();
-    m_cameraPos += (m_keyD - m_keyA) * m_moveSpeed * right;
+    m_cameraPos += (m_keyD - m_keyA) * currentSpeed * right;
 
     // Обновляем камеру в сцене
     m_scene->camera->SetPosition(m_cameraPos);
@@ -166,6 +247,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_S) m_keyS = true;
     if (event->key() == Qt::Key_A) m_keyA = true;
     if (event->key() == Qt::Key_D) m_keyD = true;
+    if (event->key() == Qt::Key_Shift) m_keyShift = true;
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event) {
@@ -173,4 +255,5 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_S) m_keyS = false;
     if (event->key() == Qt::Key_A) m_keyA = false;
     if (event->key() == Qt::Key_D) m_keyD = false;
+    if (event->key() == Qt::Key_Shift) m_keyShift = false;
 }

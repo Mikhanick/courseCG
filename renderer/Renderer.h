@@ -15,7 +15,7 @@ class Renderer
     int m_height;
     float m_fov = 90.0f;
     float m_near = 0.1f;
-    float m_far = 100.0f;
+    float m_far = 1500.0f;
 
     std::unique_ptr<ZBuffer> m_zBuffer;
     std::unique_ptr<ColorBuffer> m_colorBuffer;

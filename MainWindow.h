@@ -8,6 +8,9 @@
 
 class Scene;
 class Renderer; // ➤ оставляем!
+namespace City {
+    class CityMap;
+}
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -29,11 +32,13 @@ private slots:
 
 private:
     void GenerateCity(int gridSize = 5);
+    void GenerateCityWithMap(); // New method to generate city using CityMap
     void RenderScene(); // вызывает m_renderer->Render(*m_scene, m_image)
     void UpdateCamera();
 
     std::unique_ptr<Scene> m_scene;
     std::unique_ptr<Renderer> m_renderer; // ➤ оставляем!
+    std::unique_ptr<City::CityMap> m_cityMap; // New city map
     QImage m_image;
 
     // Управление камерой (без изменений)
@@ -43,6 +48,7 @@ private:
     QVector2D m_lastMousePos;
     bool m_mousePressed = false;
     bool m_keyW = false, m_keyS = false, m_keyA = false, m_keyD = false;
+    bool m_keyShift = false; // New shift key for speed boost
     float m_moveSpeed = 0.1f;
     float m_rotateSpeed = 0.5f;
 

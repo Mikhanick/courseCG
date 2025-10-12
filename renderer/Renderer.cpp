@@ -36,7 +36,7 @@ void Renderer::EnsureBuffers(const Scene& scene) {
             m_width, m_height, scene.camera, m_projection->Clone()
             );
 
-        auto ortho_proj = std::make_unique<OrthographicProjection>(-50, 50, -50, 50, 0.f, 100.f);
+        auto ortho_proj = std::make_unique<OrthographicProjection>(-500, 500, -500, 500, 0.f, 5000.f);
          // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
         for (auto &light: scene.lights)
         {
@@ -78,13 +78,14 @@ void Renderer::WriteToImage(QImage& image) {
         image = QImage(m_width, m_height, QImage::Format_RGB32);
     }
 
+
+    // #pragma omp parallel for collapse(2)
     // for (int y = 0; y < m_height; ++y) {
     //     for (int x = 0; x < m_width; ++x) {
     //         float depth = shadowZBuf[0]->At(x, y); // Получаем значение глубины
-
     //         // Преобразуем глубину в оттенок серого: 0.0 -> белый (255), 1.0 -> чёрный (0)
     //         // Можно инвертировать, если хочешь: чем ближе — тем темнее
-    //         int gray = qBound(0, (int)((1.0f - depth) * 255.0f), 255);
+    //         int gray = qBound(0, (int)((1.0f - depth) * 200000055.0f), 255);
 
     //         // Устанавливаем пиксель как оттенок серого
     //         image.setPixel(x, y, qRgb(gray, gray, gray));

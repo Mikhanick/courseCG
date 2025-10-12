@@ -31,7 +31,7 @@ float DirectionalLight::ComputeShadowFactor(
     }
 
     float storedDepth = shadowZBuffer->At(static_cast<int>(x), static_cast<int>(y));
-    const float bias = 0.001f;
+    const float bias = 0.00001f;
 
     if (depth > storedDepth + bias) {
         return 0.4f; // тень = 0.4f (было 0.1f — но у тебя в комментарии 0.1, а в коде 0.4 — оставил 0.4)
@@ -57,7 +57,7 @@ void DirectionalLight::MarkShadowMapDirty() {
 CameraPtr DirectionalLight::GetCamera() const {
     if (!cachedCamera) {
         // Создаём камеру вдоль направления света
-        QVector3D pos = direction * 40.;
+        QVector3D pos = direction * 4000.;
         cachedCamera = std::make_shared<Camera>(pos, QVector3D(0,0,0), QVector3D(0,1,0));
     }
     return cachedCamera;
