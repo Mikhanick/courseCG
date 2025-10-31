@@ -23,8 +23,8 @@ using City::DistanceFromCenterCostStrategy;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
-    setFixedSize(1920, 1200);
+    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
+    setFixedSize(800, 600);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
 
     m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.7, 0.3)));
     GenerateCityWithMap(); // Use the new city map generation
@@ -119,7 +119,7 @@ void MainWindow::GenerateCity(int gridSize) {
 
 void MainWindow::GenerateCityWithMap() {
     // Создание земли — зелёный квадрат под весь город, состоящий из меньших полигонов
-    const float groundSize = 200.0f; // Увеличенный размер для удлинненной дороги
+    const float groundSize = 1200.0f; // Увеличенный размер для удлинненной дороги
     const float tileSize = 20.0f; // Размер одного тайла земли
     
     // Создаем сетку из меньших квадратов вместо одного большого полигона
@@ -136,7 +136,8 @@ void MainWindow::GenerateCityWithMap() {
             tile->AddPoint(QVector3D(x, 0, maxZ));        // 3: левый-передний
 
             // Цвет земли — зелёный
-            QColor greenColor(34, 139, 34); // ForestGreen
+            QColor greenColor(235, 245, 255); // ForestGreen
+            // QColor greenColor(34, 139, 34); // ForestGreen
 
             // Грани тайла (исправленный порядок для правильного отображения сверху)
             tile->AddFace(0, 2, 1, greenColor); // Изменен порядок точек для правильной нормали
@@ -158,7 +159,7 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(2000000.0f, 100000);
+    m_cityMap->generate(1000000.0f, 10000);
 
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();

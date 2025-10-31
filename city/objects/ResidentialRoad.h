@@ -34,12 +34,20 @@ public:
     
     // Добавление зданий
     void addBuildingMesh(GraphicObject&& building) override;
+    
+    // Направление размещения зданий
+    void setBuildingSide(int side) override;
+    int getBuildingSide() const override;
+    
+    // Prototype pattern - clone method
+    std::unique_ptr<AbstractRoad> clone() const override;
 
 private:
     QVector3D m_start;
     QVector3D m_end;
     float m_width;
     int m_assignedPopulation = 0;
+    int m_buildingSide = 0; // 0 - обе стороны, 1 - правая, -1 - левая
 };
 
 } // namespace City

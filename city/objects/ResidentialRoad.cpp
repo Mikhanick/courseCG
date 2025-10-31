@@ -30,11 +30,11 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
     float buildableLength = length - 40.0f; // 10 м с каждого конца
     if (buildableLength <= 0) return;
 
-    float buildableDepth = 40.0f; // глубина застройки от дороги
+    float buildableDepth = 50.0f; // глубина застройки от дороги
 
-    // Простая упаковка: участки по 25 м в длину с большим зазором между ними
-    const float plotLength = 25.0f;
-    const float gap = 12.0f; // Увеличенный зазор между участками (было 3.0f)
+    // Простая упаковка: участки по 200 м в длину с большим зазором между ними
+    const float plotLength = 200.0f;
+    const float gap = 50.0f; // Увеличенный зазор между участками (было 3.0f)
     float currentPos = 20.0f; // начальный отступ
 
     int totalPlots = static_cast<int>(buildableLength / (plotLength + gap));
@@ -48,6 +48,13 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
         plots.emplace_back(QRectF(x, 0, w, buildableDepth), 1); // population placeholder
         currentPos += w + gap;
     }
+    
+    // Если здания должны строиться только с одной стороны, уменьшаем доступную глубину
+    if (m_buildingSide != 0) {
+        for (auto& plot : plots) {
+            plot.first.setHeight(plot.first.height() / 2.0f); // только половина глубины
+        }
+    }
 }
 
 QVector3D ResidentialRoad::calculateGlobalPosition(
@@ -60,6 +67,16 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
     // Смещение вбок (глубина здания / 2 + дополнительный зазор)
     float lateral = plot.y() + buildingSize.z() / 2.0f + 2.0f; // Добавляем 2 метра зазора
     QVector3D normal = calculateNormal();
+    
+    // Если здания должны строиться только с одной стороны, корректируем смещение
+    if (m_buildingSide == 1) { // правая сторона
+        // Используем нормаль как есть (положительное смещение вправо)
+    } else if (m_buildingSide == -1) { // левая сторона
+        // Инвертируем нормаль (отрицательное смещение влево)
+        normal = -normal;
+    }
+    // Если m_buildingSide == 0, используем нормаль как есть (обе стороны)
+    
     QVector3D result = pos + normal * lateral;
     
     // Устанавливаем высоту здания на уровне земли (Y=0)
@@ -81,7 +98,7 @@ GraphicObject ResidentialRoad::getRoadMesh() const {
     QVector3D normal = calculateNormal();
     
     // Высота дороги над землей
-    const float roadHeight = 0.1f; // 10 см над землей
+    const float roadHeight = 0.2f; // 10 см над землей
 
     // Четыре угла дороги (поднятые над землей)
     QVector3D p0 = m_start - normal * halfWidth;
@@ -94,8 +111,8 @@ GraphicObject ResidentialRoad::getRoadMesh() const {
     road.AddPoint(QVector3D(p2.x(), roadHeight, p2.z()));
     road.AddPoint(QVector3D(p3.x(), roadHeight, p3.z()));
 
-    road.AddFace(0, 1, 2, QColor(80, 80, 80)); // серый асфальт
-    road.AddFace(0, 2, 3, QColor(80, 80, 80));
+    road.AddFace(0, 1, 2, QColor(100, 100, 100)); // серый асфальт
+    road.AddFace(0, 2, 3, QColor(100, 100, 100));
     return road;
 }
 
@@ -105,6 +122,21 @@ std::vector<GraphicObject> ResidentialRoad::getBuildingMeshes() const {
 
 void ResidentialRoad::addBuildingMesh(GraphicObject&& building) {
     m_buildingMeshes.push_back(std::move(building));
+}
+
+void ResidentialRoad::setBuildingSide(int side) {
+    m_buildingSide = side;
+}
+
+int ResidentialRoad::getBuildingSide() const {
+    return m_buildingSide;
+}
+
+std::unique_ptr<AbstractRoad> ResidentialRoad::clone() const {
+    auto newRoad = std::make_unique<ResidentialRoad>(m_start, m_end, m_width);
+    newRoad->setAssignedPopulation(m_assignedPopulation);
+    newRoad->setBuildingSide(m_buildingSide);
+    return newRoad;
 }
 
 } // namespace City

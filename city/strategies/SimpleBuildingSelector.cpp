@@ -7,8 +7,8 @@ namespace City {
 GraphicObject SimpleBuildingSelector::select(
     const QRectF& availableArea, int population, float cost)
 {
-    float width = static_cast<float>(availableArea.width()) * 0.8;
-    float depth = static_cast<float>(availableArea.height());
+    float width = static_cast<float>(availableArea.height()) * 0.8;
+    float depth = static_cast<float>(availableArea.width());
 
     // Определяем тип здания по стоимости и населению
     BuildingType type;
@@ -22,14 +22,14 @@ GraphicObject SimpleBuildingSelector::select(
     }
 
     // Ограничиваем размеры
-    width = std::max(10.0f, std::min(width, 40.0f));
-    depth = std::max(10.0f, std::min(depth, 30.0f));
+    width = std::max(10.0f, std::min(width, 100.0f));
+    depth = std::max(10.0f, std::min(depth, 150.0f));
 
     float height;
     switch (type) {
-        case BuildingType::High:  height = 30.0f + cost * 20.0f; break;
-        case BuildingType::Mid:   height = 12.0f + cost * 8.0f;  break;
-        default:                  height = 6.0f + cost * 4.0f;   break;
+        case BuildingType::High:  height = 50.0f + cost * 20.0f; break;
+        case BuildingType::Mid:   height = 30.0f + cost * 8.0f;  break;
+        default:                  height = 20.0f + cost * 4.0f;   break;
     }
 
     switch (type) {
@@ -42,6 +42,7 @@ GraphicObject SimpleBuildingSelector::select(
 GraphicObject SimpleBuildingSelector::createLowRise(float width, float depth, float height) const {
     GraphicObject obj;
     QColor color(180, 160, 100); // бежевый
+    QColor roof(230, 230, 230);
 
     // Нижнее основание (Y=0)
     obj.AddPoint(QVector3D(0, 0, 0));
@@ -64,8 +65,8 @@ GraphicObject SimpleBuildingSelector::createLowRise(float width, float depth, fl
     obj.AddFace(2, 7, 6, color);
     obj.AddFace(3, 0, 4, color); // левый
     obj.AddFace(3, 4, 7, color);
-    obj.AddFace(4, 5, 6, color); // крыша
-    obj.AddFace(4, 6, 7, color);
+    obj.AddFace(4, 5, 6, roof); // крыша
+    obj.AddFace(4, 6, 7, roof);
 
     return obj;
 }
@@ -73,6 +74,8 @@ GraphicObject SimpleBuildingSelector::createLowRise(float width, float depth, fl
 GraphicObject SimpleBuildingSelector::createMidRise(float width, float depth, float height) const {
     GraphicObject obj;
     QColor color(100, 120, 180); // голубоватый
+    QColor roof(230, 230, 230);
+
 
     obj.AddPoint(QVector3D(0, 0, 0));
     obj.AddPoint(QVector3D(width, 0, 0));
@@ -91,8 +94,8 @@ GraphicObject SimpleBuildingSelector::createMidRise(float width, float depth, fl
     obj.AddFace(2, 7, 6, color);
     obj.AddFace(3, 0, 4, color);
     obj.AddFace(3, 4, 7, color);
-    obj.AddFace(4, 5, 6, color);
-    obj.AddFace(4, 6, 7, color);
+    obj.AddFace(4, 5, 6, roof);
+    obj.AddFace(4, 6, 7, roof);
 
 
     return obj;
@@ -101,6 +104,8 @@ GraphicObject SimpleBuildingSelector::createMidRise(float width, float depth, fl
 GraphicObject SimpleBuildingSelector::createHighRise(float width, float depth, float height) const {
     GraphicObject obj;
     QColor color(60, 60, 70); // тёмно-серый
+    QColor roof(230, 230, 230);
+
 
     obj.AddPoint(QVector3D(0, 0, 0));
     obj.AddPoint(QVector3D(width, 0, 0));
@@ -119,8 +124,8 @@ GraphicObject SimpleBuildingSelector::createHighRise(float width, float depth, f
     obj.AddFace(2, 7, 6, color);
     obj.AddFace(3, 0, 4, color);
     obj.AddFace(3, 4, 7, color);
-    obj.AddFace(4, 5, 6, color);
-    obj.AddFace(4, 6, 7, color);
+    obj.AddFace(4, 5, 6, roof);
+    obj.AddFace(4, 6, 7, roof);
 
 
     return obj;

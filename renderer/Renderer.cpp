@@ -98,9 +98,9 @@ void Renderer::WriteToImage(QImage& image) {
             float shade = m_shadeBuffer->shadeData[idx];
             QColor c = m_colorBuffer->colorData[idx];
             c = QColor(
-                qBound(0, (int)(c.red() * shade * 1.3), 255),
-                qBound(0, (int)(c.green() * shade), 255),
-                qBound(0, (int)(c.blue() * shade), 255)
+                qBound(0, (int)(c.red() * shade * 1.24), 255),
+                qBound(0, (int)(c.green() * shade * 1.14), 255),
+                qBound(0, (int)(c.blue() * shade * 1.1), 255)
                 );
             image.setPixel(x, y, qRgb(c.red(), c.green(), c.blue()));
         }
