@@ -1,197 +1,656 @@
 #include "SubdivisionRoadGenerationStrategy.h"
 #include "../objects/ResidentialRoad.h"
+#include "../objects/BlockSeparatorRoad.h"
 #include <random>
 #include <QVector2D>
 #include <algorithm>
 #include <set>
 #include <cmath>
+#include <QVector3D>
+#include <limits>
+#include <unordered_set>
+#include <queue>
+#include <unordered_map>
+#include <QDebug>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace City {
 
-void SubdivisionRoadGenerationStrategy::Block::generateInternalRoads(const std::vector<std::unique_ptr<AbstractRoad>>& externalRoads) {
-    static std::mt19937 gen(std::random_device{}());
-    static std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
+// Constants for road generation
+constexpr int MIN_ROAD_LENGTH_STEPS = 6;   // Minimum road length in grid steps
+constexpr int MAX_ROAD_LENGTH_STEPS = 18;   // Maximum road length in grid steps
+constexpr int MAX_ROADS_PER_BLOCK = 40;    // Maximum roads per block (W)
+constexpr int MAX_RELOCATION_ATTEMPTS = 120; // Maximum relocation attempts for intersections (Q)
+constexpr int EXCLUSION_RADIUS = 8; // Maximum relocation attempts for intersections (Q)
+constexpr float GRID_STEP = 10.0f;         // Grid step size
+constexpr float BOUNDARY_BUFFER = 30; // Buffer from block boundary
+constexpr int MAX_ROADS_PER_POINT = 4;     // Максимальное количество дорог в одной точке
+
+
+// Helper function to generate random float between min and max
+float randomFloat(float min, float max) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(min, max);
+    return dis(gen);
+}
+
+// Helper function to calculate angle between two vectors
+float calculateAngleBetweenVectors(const QVector3D& v1, const QVector3D& v2) {
+    QVector3D a = v1.normalized();
+    QVector3D b = v2.normalized();
+    float dot = QVector3D::dotProduct(a, b);
+    return std::acos(std::clamp(dot, -1.0f, 1.0f));
+}
+
+// Helper function to check if point is near boundary
+bool isNearBoundary(const QVector3D& point, const QRectF& blockRect) {
+    return (point.x() <= blockRect.left() + 2 * GRID_STEP ||
+            point.x() >= blockRect.right() - 2 * GRID_STEP ||
+            point.z() <= blockRect.top() + 2 * GRID_STEP ||
+            point.z() >= blockRect.bottom() - 2 * GRID_STEP);
+}
+
+// Constructor
+SubdivisionRoadGenerationStrategy::SubdivisionRoadGenerationStrategy(
+    float minBlockSize, int maxDepth)
+    : m_minBlockSize(minBlockSize)
+    , m_maxDepth(maxDepth)
+{
+}
+
+// Main generation method
+std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::generate(
+    float cityArea)
+{
+    // Определяем границы города как квартал
+    float citySide = std::sqrt(cityArea);
+    QRectF cityBounds(0, 0, citySide, citySide);
+
+    // Создаем начальные дороги для границ города
+    std::vector<std::unique_ptr<AbstractRoad>> roads;
     
-    float blockWidth = static_cast<float>(rect.width());
-    float blockHeight = static_cast<float>(rect.height());
-    float blockLeft = static_cast<float>(rect.left());
-    float blockTop = static_cast<float>(rect.top());
-    float blockRight = static_cast<float>(rect.right());
-    float blockBottom = static_cast<float>(rect.bottom());
+    // Добавляем границы города как основные дороги
+    roads.push_back(std::make_unique<BlockSeparatorRoad>(
+        QVector3D(cityBounds.left(), 0, cityBounds.top()), 
+        QVector3D(cityBounds.right(), 0, cityBounds.top()), 20.0f)); // Top
+    roads.push_back(std::make_unique<BlockSeparatorRoad>(
+        QVector3D(cityBounds.right(), 0, cityBounds.top()), 
+        QVector3D(cityBounds.right(), 0, cityBounds.bottom()), 20.0f)); // Right
+    roads.push_back(std::make_unique<BlockSeparatorRoad>(
+        QVector3D(cityBounds.right(), 0, cityBounds.bottom()), 
+        QVector3D(cityBounds.left(), 0, cityBounds.bottom()), 20.0f)); // Bottom
+    roads.push_back(std::make_unique<BlockSeparatorRoad>(
+        QVector3D(cityBounds.left(), 0, cityBounds.bottom()), 
+        QVector3D(cityBounds.left(), 0, cityBounds.top()), 20.0f)); // Left
+
+    // Собираем все кварталы и добавляем разделительные дороги
+    std::vector<QRectF> allBlocks;
+    subdivide(cityBounds, 0, roads, allBlocks);
     
-    // Randomly determine building side
-    std::uniform_int_distribution<int> sideDist(-1, 1);
-    
-    // Ensure at least one through road connects opposite sides of the block
-    // Randomly choose whether to create a horizontal or vertical through road
-    bool createHorizontalThroughRoad = uniformDist(gen) > 0.5f;
-    
-    if (createHorizontalThroughRoad) {
-        // Create a horizontal through road (connects left and right sides)
-        float roadY = blockTop + blockHeight * (0.3f + 0.4f * uniformDist(gen)); // Keep road in middle 40% of block
-        auto throughRoad = std::make_unique<ResidentialRoad>(
-            QVector3D(blockLeft + 10.0f, 0, roadY),
-            QVector3D(blockRight - 10.0f, 0, roadY),
-            4.0f
-        );
-        
-        throughRoad->setBuildingSide(sideDist(gen));
-        roads.push_back(std::move(throughRoad));
-    } else {
-        // Create a vertical through road (connects top and bottom sides)
-        float roadX = blockLeft + blockWidth * (0.3f + 0.4f * uniformDist(gen)); // Keep road in middle 40% of block
-        auto throughRoad = std::make_unique<ResidentialRoad>(
-            QVector3D(roadX, 0, blockTop + 10.0f),
-            QVector3D(roadX, 0, blockBottom - 10.0f),
-            4.0f
-        );
-        
-        throughRoad->setBuildingSide(sideDist(gen));
-        roads.push_back(std::move(throughRoad));
+    // Генерируем внутренние дороги для каждого квартала
+    for (const QRectF& block : allBlocks) {
+        auto blockRoads = generateBlockRoads(block);
+        for (auto& road : blockRoads) {
+            roads.push_back(std::move(road));
+        }
     }
     
-    // With some probability, add roads connecting adjacent sides
-    if (uniformDist(gen) > 0.3f) {  // 70% chance to add adjacent connecting roads
-        int numAdjacentRoads = 1 + static_cast<int>(uniformDist(gen) * 3);  // 1-4 adjacent roads
+    return roads;
+}
+
+void SubdivisionRoadGenerationStrategy::subdivide(const QRectF& rect, int depth, 
+                                                 std::vector<std::unique_ptr<AbstractRoad>>& roads,
+                                                 std::vector<QRectF>& blocks) {
+    // Проверяем условия остановки рекурсии
+    float width = rect.width();
+    float height = rect.height();
+    float longestSide = std::max(width, height);
+    
+    // Используем параметр из конструктора
+    if (longestSide < m_minBlockSize || depth >= m_maxDepth) {
+        blocks.push_back(rect);
+        return;
+    }
+    
+    // Определяем направление разбиения
+    bool splitVertical = (width > height);
+    float splitRatio = randomFloat(0.3f, 0.7f);
+    
+    if (splitVertical) {
+        // Вертикальное разбиение
+        float splitX = rect.left() + width * splitRatio;
+        QRectF leftBlock(rect.left(), rect.top(), splitX - rect.left(), height);
+        QRectF rightBlock(splitX, rect.top(), rect.right() - splitX, height);
         
-        for (int i = 0; i < numAdjacentRoads; ++i) {
-            // Randomly choose type of adjacent connection
-            int connectionType = static_cast<int>(uniformDist(gen) * 4);  // 0-3
-            
-            switch (connectionType) {
-                case 0: {  // Left to top
-                    float leftX = blockLeft + 10.0f + uniformDist(gen) * (blockWidth * 0.3f);
-                    float topY = blockTop + 10.0f + uniformDist(gen) * (blockHeight * 0.3f);
-                    
-                    auto road = std::make_unique<ResidentialRoad>(
-                        QVector3D(leftX, 0, blockTop + blockHeight * 0.5f),  // Start from middle of left side
-                        QVector3D(blockLeft + blockWidth * 0.5f, 0, topY),    // End at middle of top side
-                        4.0f
-                    );
-                    
-                    road->setBuildingSide(sideDist(gen));
-                    roads.push_back(std::move(road));
-                    break;
-                }
-                case 1: {  // Right to top
-                    float rightX = blockRight - 10.0f - uniformDist(gen) * (blockWidth * 0.3f);
-                    float topY = blockTop + 10.0f + uniformDist(gen) * (blockHeight * 0.3f);
-                    
-                    auto road = std::make_unique<ResidentialRoad>(
-                        QVector3D(rightX, 0, blockTop + blockHeight * 0.5f),  // Start from middle of right side
-                        QVector3D(blockLeft + blockWidth * 0.5f, 0, topY),    // End at middle of top side
-                        4.0f
-                    );
-                    
-                    road->setBuildingSide(sideDist(gen));
-                    roads.push_back(std::move(road));
-                    break;
-                }
-                case 2: {  // Right to bottom
-                    float rightX = blockRight - 10.0f - uniformDist(gen) * (blockWidth * 0.3f);
-                    float bottomY = blockBottom - 10.0f - uniformDist(gen) * (blockHeight * 0.3f);
-                    
-                    auto road = std::make_unique<ResidentialRoad>(
-                        QVector3D(rightX, 0, blockTop + blockHeight * 0.5f),  // Start from middle of right side
-                        QVector3D(blockLeft + blockWidth * 0.5f, 0, bottomY), // End at middle of bottom side
-                        4.0f
-                    );
-                    
-                    road->setBuildingSide(sideDist(gen));
-                    roads.push_back(std::move(road));
-                    break;
-                }
-                case 3: {  // Left to bottom
-                    float leftX = blockLeft + 10.0f + uniformDist(gen) * (blockWidth * 0.3f);
-                    float bottomY = blockBottom - 10.0f - uniformDist(gen) * (blockHeight * 0.3f);
-                    
-                    auto road = std::make_unique<ResidentialRoad>(
-                        QVector3D(leftX, 0, blockTop + blockHeight * 0.5f),  // Start from middle of left side
-                        QVector3D(blockLeft + blockWidth * 0.5f, 0, bottomY), // End at middle of bottom side
-                        4.0f
-                    );
-                    
-                    road->setBuildingSide(sideDist(gen));
-                    roads.push_back(std::move(road));
-                    break;
-                }
+        // Добавляем разделительную дорогу
+        roads.push_back(std::make_unique<BlockSeparatorRoad>(
+            QVector3D(splitX, 0, rect.top()),
+            QVector3D(splitX, 0, rect.bottom()),
+            20.0f
+        ));
+        
+        subdivide(leftBlock, depth + 1, roads, blocks);
+        subdivide(rightBlock, depth + 1, roads, blocks);
+    } else {
+        // Горизонтальное разбиение
+        float splitY = rect.top() + height * splitRatio;
+        QRectF topBlock(rect.left(), rect.top(), width, splitY - rect.top());
+        QRectF bottomBlock(rect.left(), splitY, width, rect.bottom() - splitY);
+        
+        // Добавляем разделительную дорогу
+        roads.push_back(std::make_unique<BlockSeparatorRoad>(
+            QVector3D(rect.left(), 0, splitY),
+            QVector3D(rect.right(), 0, splitY),
+            20.0f
+        ));
+        
+        subdivide(topBlock, depth + 1, roads, blocks);
+        subdivide(bottomBlock, depth + 1, roads, blocks);
+    }
+}
+
+#include <QDebug>
+std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::generateBlockRoads(
+    const QRectF& blockRect) const
+{
+    qDebug() << "\n===== НАЧАЛО ГЕНЕРАЦИИ ДОРОГ ДЛЯ КВАРТАЛА =====";
+    qDebug() << "Размер квартала:" << blockRect.width() << "x" << blockRect.height();
+    constexpr float EXCLUSION_EPSILON = 1e-5f;
+    constexpr float MIN_ANGLE_BETWEEN_ROADS = M_PI / 3.5f; 
+    constexpr float CORNER_BUFFER = 3.0f * GRID_STEP; // Минимальный отступ от углов квартала
+
+    // Параметры для определения стороны застройки (в блоках сетки)
+    constexpr float SEARCH_DISTANCE_PERPENDICULAR_BLOCKS = 3.0f; // N — расстояние перпендикулярно дороге
+    constexpr float OFFSET_FROM_ENDS_BLOCKS = 1.0f;              // M — отступ от концов
+    const float searchDistance = SEARCH_DISTANCE_PERPENDICULAR_BLOCKS * GRID_STEP;
+    const float offsetDistance = OFFSET_FROM_ENDS_BLOCKS * GRID_STEP;
+
+    qDebug() << "Параметры застройки:";
+    qDebug() << "  N (перпендикулярная зона поиска):" << SEARCH_DISTANCE_PERPENDICULAR_BLOCKS << "блоков →" << searchDistance << "ед";
+    qDebug() << "  M (зона отступов от концов):" << OFFSET_FROM_ENDS_BLOCKS << "блоков →" << offsetDistance << "ед";
+
+    std::vector<std::unique_ptr<AbstractRoad>> roads;
+    auto findPointIndex = [EXCLUSION_EPSILON](const QVector3D& point, const std::vector<QVector3D>& points) -> int {
+        for (size_t i = 0; i < points.size(); ++i) {
+            if ((point - points[i]).length() < EXCLUSION_EPSILON) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    };
+
+    // 1. Создаем сетку точек для внутренних дорог
+    QRectF innerRect(
+        blockRect.left() + BOUNDARY_BUFFER,
+        blockRect.top() + BOUNDARY_BUFFER,
+        blockRect.width() - 2 * BOUNDARY_BUFFER,
+        blockRect.height() - 2 * BOUNDARY_BUFFER
+    );
+
+    qDebug() << "Внутренняя область:" << innerRect.width() << "x" << innerRect.height();
+    qDebug() << "Отступ от границ (BOUNDARY_BUFFER):" << BOUNDARY_BUFFER;
+    qDebug() << "Шаг сетки (GRID_STEP):" << GRID_STEP;
+    qDebug() << "Мин/макс длина дороги (в шагах):" << MIN_ROAD_LENGTH_STEPS << "/" << MAX_ROAD_LENGTH_STEPS;
+    qDebug() << "Радиус запретной зоны (EXCLUSION_RADIUS):" << EXCLUSION_RADIUS << "шагов сетки";
+    qDebug() << "Макс дорог в точке (MAX_ROADS_PER_POINT):" << MAX_ROADS_PER_POINT;
+    qDebug() << "!!! АКТИВИРОВАНА РАСШИРЕННАЯ ПРОВЕРКА УГЛОВ (начало + конец)";
+    qDebug() << "!!! НОВАЯ ЛОГИКА: 1-2 точки генерации на каждой стороне квартала (отступ от углов:" << CORNER_BUFFER << ")";
+
+    std::vector<QVector3D> gridPoints;
+    for (float x = innerRect.left(); x <= innerRect.right() + EXCLUSION_EPSILON; x += GRID_STEP) {
+        for (float z = innerRect.top(); z <= innerRect.bottom() + EXCLUSION_EPSILON; z += GRID_STEP) {
+            if (x <= innerRect.right() + EXCLUSION_EPSILON && z <= innerRect.bottom() + EXCLUSION_EPSILON) {
+                gridPoints.push_back(QVector3D(x, 0, z));
             }
         }
     }
-    
-    // Create branching roads with maximum length of 3 segments
-    int numBranches = static_cast<int>(uniformDist(gen) * 5);  // 0-4 branching roads
-    
-    for (int i = 0; i < numBranches; ++i) {
-        // Start from an existing road or from a random position
-        QVector3D startPos;
-        if (!roads.empty() && uniformDist(gen) > 0.3f) {
-            // Start from an existing road
-            int roadIdx = static_cast<int>(uniformDist(gen) * roads.size());
-            auto& existingRoad = roads[roadIdx];
-            float t = uniformDist(gen);  // Position along the road (0 to 1)
-            QVector3D roadStart = existingRoad->getStart();
-            QVector3D roadEnd = existingRoad->getEnd();
-            startPos = roadStart + (roadEnd - roadStart) * t;
-        } else {
-            // Start from a random position within the block
-            startPos = QVector3D(
-                blockLeft + 10.0f + uniformDist(gen) * (blockWidth - 20.0f),
-                0,
-                blockTop + 10.0f + uniformDist(gen) * (blockHeight - 20.0f)
-            );
+
+    qDebug() << "Создано внутренних точек сетки:" << gridPoints.size();
+    if (gridPoints.empty()) {
+        qDebug() << "!!! СЕТКА ПУСТА - ЗАВЕРШЕНИЕ ГЕНЕРАЦИИ";
+        return roads;
+    }
+
+    // 2. ГЕНЕРАЦИЯ ТОЧЕК НА ГРАНИЦАХ КВАРТАЛА (1-2 точки на каждую сторону)
+    qDebug() << "\n--- ГЕНЕРАЦИЯ ГРАНИЧНЫХ ТОЧЕК ---";
+    std::vector<QVector3D> boundaryPoints;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Вспомогательная лямбда для генерации точек на стороне с мин. дистанцией
+    auto generateSidePoints = [&](float fixedCoord, float startCoord, float endCoord, bool isVertical) {
+        std::uniform_int_distribution<> numPointsDist(1, 2);
+        int numPoints = numPointsDist(gen);
+        qDebug() << "  Генерация" << numPoints << "точек на стороне";
+        
+        std::vector<float> coords;
+        float sideLength = endCoord - startCoord;
+
+        for (int i = 0; i < numPoints; ++i) {
+            float coord;
+            bool valid;
+            int attempts = 0;
+
+            do {
+                coord = startCoord + randomFloat(0.1f, 0.9f) * sideLength;
+                valid = true;
+                for (float existingCoord : coords) {
+                    if (std::abs(coord - existingCoord) < 2.0f * GRID_STEP) {
+                        valid = false;
+                        break;
+                    }
+                }
+                attempts++;
+            } while (!valid && attempts < 10);
+
+            if (valid) {
+                coords.push_back(coord);
+                qDebug() << "    Сгенерирована точка на позиции:" << coord;
+            }
         }
-        
-        // Create a branching road with up to 3 segments
-        int numSegments = 1 + static_cast<int>(uniformDist(gen) * 3);  // 1-3 segments
-        QVector3D currentPos = startPos;
-        
-        for (int seg = 0; seg < numSegments; ++seg) {
-            // Calculate a random direction and length
-            float angle = uniformDist(gen) * 2.0f * M_PI;  // Random angle in radians
-            float maxSegmentLength = 30.0f;  // Max length of each segment
-            
-            // Calculate end position of this segment
-            float endX = currentPos.x() + cos(angle) * maxSegmentLength;
-            float endZ = currentPos.z() + sin(angle) * maxSegmentLength;
-            
-            // Keep within block boundaries with some margin
-            endX = std::max(blockLeft + 5.0f, std::min(blockRight - 5.0f, endX));
-            endZ = std::max(blockTop + 5.0f, std::min(blockBottom - 5.0f, endZ));
-            
-            QVector3D endPos(endX, 0, endZ);
-            
-            // Check for intersection with existing roads before adding
+
+        for (float coord : coords) {
+            if (isVertical) {
+                boundaryPoints.push_back(QVector3D(fixedCoord, 0, coord));
+            } else {
+                boundaryPoints.push_back(QVector3D(coord, 0, fixedCoord));
+            }
+        }
+    };
+
+    // Верхняя сторона (y = blockRect.top())
+    qDebug() << "\n  === ВЕРХНЯЯ СТОРОНА ===";
+    generateSidePoints(blockRect.top(), 
+                       blockRect.left() + CORNER_BUFFER, 
+                       blockRect.right() - CORNER_BUFFER, false);
+
+    // Нижняя сторона (y = blockRect.bottom())
+    qDebug() << "\n  === НИЖНЯЯ СТОРОНА ===";
+    generateSidePoints(blockRect.bottom(), 
+                       blockRect.left() + CORNER_BUFFER, 
+                       blockRect.right() - CORNER_BUFFER, false);
+
+    // Левая сторона (x = blockRect.left())
+    qDebug() << "\n  === ЛЕВАЯ СТОРОНА ===";
+    generateSidePoints(blockRect.left(), 
+                       blockRect.top() + CORNER_BUFFER, 
+                       blockRect.bottom() - CORNER_BUFFER, true);
+
+    // Правая сторона (x = blockRect.right())
+    qDebug() << "\n  === ПРАВАЯ СТОРОНА ===";
+    generateSidePoints(blockRect.right(), 
+                       blockRect.top() + CORNER_BUFFER, 
+                       blockRect.bottom() - CORNER_BUFFER, true);
+
+    qDebug() << "\nСгенерировано граничных точек всего:" << boundaryPoints.size();
+    for (size_t i = 0; i < boundaryPoints.size(); ++i) {
+        qDebug() << "  Граничная точка" << i << ":" << boundaryPoints[i].x() << "," << boundaryPoints[i].z();
+    }
+
+    // 3. Инициализация структур данных
+    std::vector<QVector3D> visitedPoints;
+    std::vector<std::pair<QVector3D, QVector3D>> roadSegments;
+    std::vector<QRectF> exclusionZones;
+    std::vector<QVector3D> allPoints;
+    std::vector<int> roadCounts;
+
+    const float exclusionSize = EXCLUSION_RADIUS * GRID_STEP;
+    qDebug() << "!!! ФАКТИЧЕСКИЙ РАЗМЕР ЗОНЫ ЗАПРЕТА:" << exclusionSize << "единиц (радиус)";
+
+    auto addVisitedPoint = [&](const QVector3D& point) {
+        visitedPoints.push_back(point);
+        exclusionZones.emplace_back(
+            point.x() - exclusionSize,
+            point.z() - exclusionSize,
+            exclusionSize * 2,
+            exclusionSize * 2
+        );
+        int idx = findPointIndex(point, allPoints);
+        if (idx == -1) {
+            allPoints.push_back(point);
+            roadCounts.push_back(0);
+        }
+    };
+
+    // Добавляем граничные точки
+    qDebug() << "\n--- ИНИЦИАЛИЗАЦИЯ ГРАНИЧНЫХ ТОЧЕК ---";
+    for (const auto& point : boundaryPoints) {
+        addVisitedPoint(point);
+    }
+
+    qDebug() << "\nНачальное состояние:";
+    qDebug() << "  Посещенных точек (граничные):" << visitedPoints.size();
+    qDebug() << "  Зон запрета:" << exclusionZones.size();
+    qDebug() << "  Уникальных точек для счетчиков:" << allPoints.size();
+
+    // Вспомогательная функция для проверки углов
+    auto violatesAngleConstraint = [EXCLUSION_EPSILON, this](
+        const QVector3D& startPoint, 
+        const QVector3D& endPoint,
+        const std::vector<std::pair<QVector3D, QVector3D>>& roadSegments,
+        float minAngle) -> bool
+    {
+        bool violationFound = false;
+        QVector3D newDirectionFromStart = (endPoint - startPoint).normalized();
+
+        // Проверка в начальной точке
+        for (const auto& [existingStart, existingEnd] : roadSegments) {
+            bool sharesStartPoint = false;
+            QVector3D existingDirection;
+
+            if ((existingStart - startPoint).length() < EXCLUSION_EPSILON) {
+                sharesStartPoint = true;
+                existingDirection = (existingEnd - existingStart).normalized();
+            }
+            else if ((existingEnd - startPoint).length() < EXCLUSION_EPSILON) {
+                sharesStartPoint = true;
+                existingDirection = (existingStart - existingEnd).normalized();
+            }
+
+            if (sharesStartPoint) {
+                float angle = calculateAngleBetweenVectors(newDirectionFromStart, existingDirection);
+                if (angle < minAngle) {
+                    violationFound = true;
+                }
+            }
+        }
+
+        // Проверка в конечной точке
+        QVector3D newDirectionToEnd = (startPoint - endPoint).normalized();
+
+        for (const auto& [existingStart, existingEnd] : roadSegments) {
+            bool sharesEndPoint = false;
+            QVector3D existingDirection;
+
+            if ((existingStart - endPoint).length() < EXCLUSION_EPSILON) {
+                sharesEndPoint = true;
+                existingDirection = (existingEnd - existingStart).normalized();
+            }
+            else if ((existingEnd - endPoint).length() < EXCLUSION_EPSILON) {
+                sharesEndPoint = true;
+                existingDirection = (existingStart - existingEnd).normalized();
+            }
+
+            if (sharesEndPoint) {
+                float angle = calculateAngleBetweenVectors(newDirectionToEnd, existingDirection);
+                if (angle < minAngle) {
+                    violationFound = true;
+                }
+            }
+        }
+        return violationFound;
+    };
+
+    // 4. Генерация дорог от граничных точек внутрь квартала
+    qDebug() << "\n--- ГЕНЕРАЦИЯ ДОРОГ ОТ ГРАНИЦ ВНУТРЬ ---";
+    int consecutiveFails = 0;
+    int totalAttempts = 0;
+
+    while (roads.size() < MAX_ROADS_PER_BLOCK && !visitedPoints.empty() && consecutiveFails < MAX_RELOCATION_ATTEMPTS) {
+        bool roadAdded = false;
+
+        for (int attempt = 0; attempt < MAX_RELOCATION_ATTEMPTS && !visitedPoints.empty(); ++attempt) {
+            totalAttempts++;
+
+            // Выбор начальной точки (из посещённых)
+            std::uniform_int_distribution<> visitedDist(0, visitedPoints.size() - 1);
+            int startIdx = visitedDist(gen);
+            QVector3D startPoint = visitedPoints[startIdx];
+
+            // Выбор конечной точки (из внутренней сетки)
+            std::uniform_int_distribution<> gridDist(0, gridPoints.size() - 1);
+            int endIdx = gridDist(gen);
+            QVector3D endPoint = gridPoints[endIdx];
+
+            // Проверка длины
+            float distance = (endPoint - startPoint).length();
+            float minAllowedLength = MIN_ROAD_LENGTH_STEPS * GRID_STEP;
+            float maxAllowedLength = MAX_ROAD_LENGTH_STEPS * GRID_STEP;
+
+            if (distance < minAllowedLength || distance > maxAllowedLength) continue;
+
+            // Проверка: является ли endPoint существующей конечной точкой?
+            bool isExistingEndpoint = false;
+            for (const auto& [rStart, rEnd] : roadSegments) {
+                if ((endPoint - rStart).length() < EXCLUSION_EPSILON || 
+                    (endPoint - rEnd).length() < EXCLUSION_EPSILON) {
+                    isExistingEndpoint = true;
+                    break;
+                }
+            }
+
+            // Проверка зоны запрета (если не существующая конечная точка)
+            if (!isExistingEndpoint) {
+                bool inExclusionZone = false;
+                for (const auto& zone : exclusionZones) {
+                    if (endPoint.x() >= zone.left() - EXCLUSION_EPSILON && endPoint.x() <= zone.right() + EXCLUSION_EPSILON &&
+                        endPoint.z() >= zone.top() - EXCLUSION_EPSILON && endPoint.z() <= zone.bottom() + EXCLUSION_EPSILON) {
+                        inExclusionZone = true;
+                        break;
+                    }
+                }
+                if (inExclusionZone) continue;
+            }
+
+            // Проверка углов
+            if (violatesAngleConstraint(startPoint, endPoint, roadSegments, MIN_ANGLE_BETWEEN_ROADS)) continue;
+
+            // Проверка количества дорог в точках
+            int startPointIdx = findPointIndex(startPoint, allPoints);
+            int endPointIdx = findPointIndex(endPoint, allPoints);
+
+            if (startPointIdx == -1) {
+                allPoints.push_back(startPoint);
+                roadCounts.push_back(0);
+                startPointIdx = static_cast<int>(allPoints.size() - 1);
+            }
+            if (endPointIdx == -1) {
+                allPoints.push_back(endPoint);
+                roadCounts.push_back(0);
+                endPointIdx = static_cast<int>(allPoints.size() - 1);
+            }
+
+            bool wouldExceedStart = (roadCounts[startPointIdx] + 1) > MAX_ROADS_PER_POINT;
+            bool wouldExceedEnd = (roadCounts[endPointIdx] + 1) > MAX_ROADS_PER_POINT;
+            if (wouldExceedStart || wouldExceedEnd) continue;
+
+            // Проверка пересечений
             bool intersects = false;
-            for (const auto& existingRoad : roads) {
-                QVector3D existingStart = existingRoad->getStart();
-                QVector3D existingEnd = existingRoad->getEnd();
-                
-                // Simple intersection check (not perfect but sufficient for now)
-                if (doLinesIntersect(currentPos, endPos, existingStart, existingEnd)) {
-                    // If intersection occurs, stop the branch at the intersection point
-                    QVector3D intersectionPoint = findLineIntersection(currentPos, endPos, existingStart, existingEnd);
-                    if (intersectionPoint != QVector3D(0, 0, 0)) {
-                        endPos = intersectionPoint;
+            for (size_t ri = 0; ri < roadSegments.size(); ++ri) {
+                const auto& [rStart, rEnd] = roadSegments[ri];
+
+                bool sharesStart = ((startPoint - rStart).length() < EXCLUSION_EPSILON || 
+                                   (startPoint - rEnd).length() < EXCLUSION_EPSILON);
+                bool sharesEnd = ((endPoint - rStart).length() < EXCLUSION_EPSILON || 
+                                 (endPoint - rEnd).length() < EXCLUSION_EPSILON);
+
+                if (sharesStart && sharesEnd) continue;
+
+                if (doLinesIntersect(startPoint, endPoint, rStart, rEnd)) {
+                    QVector3D intersection = findLineIntersection(startPoint, endPoint, rStart, rEnd);
+                    bool isEndpointIntersection = 
+                        ((intersection - rStart).length() < EXCLUSION_EPSILON || 
+                         (intersection - rEnd).length() < EXCLUSION_EPSILON) &&
+                        ((intersection - startPoint).length() < EXCLUSION_EPSILON || 
+                         (intersection - endPoint).length() < EXCLUSION_EPSILON);
+
+                    if (!isEndpointIntersection) {
                         intersects = true;
                         break;
                     }
                 }
             }
-            
-            // Create the road segment
-            auto branchRoad = std::make_unique<ResidentialRoad>(currentPos, endPos, 3.0f);
-            branchRoad->setBuildingSide(sideDist(gen));
-            roads.push_back(std::move(branchRoad));
-            
-            currentPos = endPos;
-            
-            // If there was an intersection, stop creating more segments for this branch
-            if (intersects) {
-                break;
+            if (intersects) continue;
+
+            // Успешное добавление
+            roadSegments.emplace_back(startPoint, endPoint);
+            roadCounts[startPointIdx]++;
+            roadCounts[endPointIdx]++;
+
+            // Добавляем конечную точку в посещённые
+            bool endPointExists = false;
+            for (const auto& vp : visitedPoints) {
+                if ((endPoint - vp).length() < EXCLUSION_EPSILON) {
+                    endPointExists = true;
+                    break;
+                }
+            }
+            if (!endPointExists) {
+                addVisitedPoint(endPoint);
+            }
+
+            roadAdded = true;
+            consecutiveFails = 0;
+            break;
+        }
+
+        if (!roadAdded) {
+            consecutiveFails++;
+            if (consecutiveFails >= MAX_RELOCATION_ATTEMPTS / 2 && visitedPoints.size() > boundaryPoints.size() * 2) {
+                if (!visitedPoints.empty()) {
+                    visitedPoints.pop_back();
+                    if (!exclusionZones.empty()) exclusionZones.pop_back();
+                }
             }
         }
+
+        if (totalAttempts > 10000) break;
     }
+
+    // 5. Собираем ВСЕ дороги в квартале для проверки сторон: границы + внутренние
+    std::vector<std::pair<QVector3D, QVector3D>> allExistingRoads;
+    // Границы квартала
+    allExistingRoads.emplace_back(QVector3D(blockRect.left(), 0, blockRect.top()), 
+                                  QVector3D(blockRect.right(), 0, blockRect.top()));
+    allExistingRoads.emplace_back(QVector3D(blockRect.right(), 0, blockRect.top()), 
+                                  QVector3D(blockRect.right(), 0, blockRect.bottom()));
+    allExistingRoads.emplace_back(QVector3D(blockRect.right(), 0, blockRect.bottom()), 
+                                  QVector3D(blockRect.left(), 0, blockRect.bottom()));
+    allExistingRoads.emplace_back(QVector3D(blockRect.left(), 0, blockRect.bottom()), 
+                                  QVector3D(blockRect.left(), 0, blockRect.top()));
+
+    // Добавляем внутренние дороги
+    for (const auto& seg : roadSegments) {
+        allExistingRoads.push_back(seg);
+    }
+
+    qDebug() << "\n--- ОПРЕДЕЛЕНИЕ СТОРОН ЗАСТРОЙКИ ---";
+    qDebug() << "Всего дорог для проверки:" << allExistingRoads.size() 
+             << "(4 границы +" << roadSegments.size() << " внутренних)";
+
+    // Вспомогательная лямбда: определяет BuildingSide для одной дороги
+    auto determineBuildingSideForRoad = [this, searchDistance, offsetDistance, EXCLUSION_EPSILON]
+        (const QVector3D& start, const QVector3D& end,
+         const std::vector<std::pair<QVector3D, QVector3D>>& otherRoads) -> BuildingSide
+    {
+        const float roadLength = (end - start).length();
+        if (roadLength < 1e-6f) return BuildingSide::NONE;
+
+        const QVector3D dir = (end - start).normalized();
+        bool leftHasRoad = false;
+        bool rightHasRoad = false;
+
+        // Адаптивный отступ для коротких дорог
+        float effectiveOffset = offsetDistance;
+        if (roadLength < 2 * offsetDistance) {
+            effectiveOffset = std::max(0.0f, roadLength * 0.3f);
+        }
+
+        const QVector3D midStart = start + dir * effectiveOffset;
+        const QVector3D midEnd = end - dir * effectiveOffset;
+        const float midLength = (midEnd - midStart).length();
+
+        if (midLength > 1e-6f) {
+            // Перпендикуляры (в 2D: dir = (dx, dz) → perp = (-dz, dx))
+            QVector3D perpLeft(-dir.z(), 0, dir.x());
+            const float perpLen = perpLeft.length();
+            if (perpLen < 1e-6f) return BuildingSide::NONE;
+            perpLeft.normalize();
+            const QVector3D perpRight = -perpLeft;
+
+            // Выборка: равномерные точки (минимум 1, максимум 5)
+            const int numSamples = std::max(1, std::min(5, static_cast<int>(midLength / GRID_STEP) + 1));
+            for (int i = 0; i < numSamples; ++i) {
+                const float t = (numSamples == 1) ? 0.5f : static_cast<float>(i) / (numSamples - 1);
+                const QVector3D P = midStart + (midEnd - midStart) * t;
+
+                // Проверка левой стороны
+                if (!leftHasRoad) {
+                    const QVector3D leftRayEnd = P + perpLeft * searchDistance;
+                    for (const auto& seg : otherRoads) {
+                        if (this->doLinesIntersect(P, leftRayEnd, seg.first, seg.second)) {
+                            leftHasRoad = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Проверка правой стороны
+                if (!rightHasRoad) {
+                    const QVector3D rightRayEnd = P + perpRight * searchDistance;
+                    for (const auto& seg : otherRoads) {
+                        if (this->doLinesIntersect(P, rightRayEnd, seg.first, seg.second)) {
+                            rightHasRoad = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (leftHasRoad && rightHasRoad) break;
+            }
+        }
+
+        if (!leftHasRoad && !rightHasRoad) return BuildingSide::BOTH;
+        if (!leftHasRoad) return BuildingSide::LEFT;
+        if (!rightHasRoad) return BuildingSide::RIGHT;
+        return BuildingSide::NONE;
+    };
+
+    // 6. Создание объектов дорог с установкой стороны застройки
+    for (size_t i = 0; i < roadSegments.size(); ++i) {
+        const auto& [start, end] = roadSegments[i];
+
+        // Формируем список дорог БЕЗ текущей
+        std::vector<std::pair<QVector3D, QVector3D>> otherRoads;
+        for (const auto& seg : allExistingRoads) {
+            // Точное сравнение начала и конца (с учётом направления)
+            bool isCurrent =
+                ((start - seg.first).length() < EXCLUSION_EPSILON && (end - seg.second).length() < EXCLUSION_EPSILON) ||
+                ((start - seg.second).length() < EXCLUSION_EPSILON && (end - seg.first).length() < EXCLUSION_EPSILON);
+            if (!isCurrent) {
+                otherRoads.push_back(seg);
+            }
+        }
+
+        BuildingSide side = determineBuildingSideForRoad(start, end, otherRoads);
+        auto road = std::make_unique<ResidentialRoad>(start, end, 6.0f);
+        road->setBuildingSideFromEnum(side);
+        roads.push_back(std::move(road));
+
+        // Отладка
+        int startIdx = findPointIndex(start, allPoints);
+        int endIdx = findPointIndex(end, allPoints);
+        int sc = (startIdx != -1) ? roadCounts[startIdx] : 0;
+        int ec = (endIdx != -1) ? roadCounts[endIdx] : 0;
+        qDebug() << "Дорога #" << i << " (сторона:" << static_cast<int>(side) << "):"
+                 << "от (" << start.x() << "," << start.z() << ")[" << sc << "] до ("
+                 << end.x() << "," << end.z() << ")[" << ec << "]";
+    }
+
+    qDebug() << "\n===== ЗАВЕРШЕНИЕ ГЕНЕРАЦИИ =====";
+    qDebug() << "Итоговые результаты:";
+    qDebug() << "  Всего дорог создано:" << roads.size() << "/" << MAX_ROADS_PER_BLOCK;
+    qDebug() << "  Посещенных точек:" << visitedPoints.size();
+    qDebug() << "  Граничных точек:" << boundaryPoints.size();
+    qDebug() << "  Уникальных точек:" << allPoints.size();
+    qDebug() << "  Попыток:" << totalAttempts;
+    qDebug() << "  Последовательных неудач:" << consecutiveFails;
+
+    return roads;
 }
 
 // Helper function to check if two lines intersect
@@ -202,14 +661,20 @@ bool SubdivisionRoadGenerationStrategy::doLinesIntersect(const QVector3D& line1S
     float x3 = line2Start.x(), y3 = line2Start.z();
     float x4 = line2End.x(), y4 = line2End.z();
     
+    // Calculate denominators
     float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
     if (std::abs(denom) < 1e-6f) return false;  // Lines are parallel
     
-    float t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-    float u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+    // Calculate numerators
+    float num1 = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+    float num2 = (x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3);
     
-    // Check if intersection point is within both line segments
-    return (t >= 0 && t <= 1 && u >= 0 && u <= 1);
+    // Calculate parameters
+    float t = num1 / denom;
+    float u = -num2 / denom;
+    
+    // Check if intersection is within both segments
+    return (t >= 0.0f - 1e-6f && t <= 1.0f + 1e-6f && u >= 0.0f - 1e-6f && u <= 1.0f + 1e-6f);
 }
 
 // Helper function to find intersection point of two lines
@@ -230,158 +695,6 @@ QVector3D SubdivisionRoadGenerationStrategy::findLineIntersection(const QVector3
     float intersectY = y1 + t * (y2 - y1);
     
     return QVector3D(intersectX, 0, intersectY);
-}
-
-// Custom comparator for QPointF pairs to use in std::set
-struct QPointFPairCompare {
-    bool operator()(const std::pair<QPointF, QPointF>& a, const std::pair<QPointF, QPointF>& b) const {
-        if (a.first.x() != b.first.x()) return a.first.x() < b.first.x();
-        if (a.first.y() != b.first.y()) return a.first.y() < b.first.y();
-        if (a.second.x() != b.second.x()) return a.second.x() < b.second.x();
-        return a.second.y() < b.second.y();
-    }
-};
-
-SubdivisionRoadGenerationStrategy::SubdivisionRoadGenerationStrategy(
-    float minBlockSize, int maxDepth)
-    : m_minBlockSize(minBlockSize)
-    , m_maxDepth(maxDepth)
-{
-}
-
-std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::generate(
-    float cityArea, int totalPopulation)
-{
-    // Определяем границы города как квадрат
-    float citySide = std::sqrt(cityArea);
-    QRectF cityBounds(0, 0, citySide, citySide);
-
-    // Начинаем с одного блока — всего города
-    std::vector<Block> blocks;
-    blocks.push_back({cityBounds, 0, {}});
-
-    // Рекурсивное разбиение
-    size_t i = 0;
-    while (i < blocks.size()) {
-        if (blocks[i].depth < m_maxDepth) {
-            QRectF r = blocks[i].rect;
-            // Изменяем условие: блоки делятся до тех пор, пока не станут меньше 500 на 300
-            if (r.width() > 500.0f || r.height() > 300.0f) {
-                subdivide(blocks, blocks[i]);
-                blocks.erase(blocks.begin() + i); // заменяем блок его частями
-                continue;
-            }
-        }
-        ++i;
-    }
-
-    // Генерируем дороги из блоков (external roads)
-    std::vector<std::unique_ptr<AbstractRoad>> roads = blocksToRoads(blocks);
-    
-    // Collect all internal roads from blocks
-    for (const auto& block : blocks) {
-        for (const auto& road : block.roads) {
-            // Clone the road using the prototype pattern
-            roads.push_back(road->clone());
-        }
-    }
-    
-    return roads;
-}
-
-void SubdivisionRoadGenerationStrategy::subdivide(
-    std::vector<Block>& blocks, const Block& block)
-{
-    static std::mt19937 gen(std::random_device{}());
-    static std::uniform_real_distribution<float> splitDist(0.3f, 0.7f);
-    static std::uniform_int_distribution<int> axisDist(0, 1);
-
-    QRectF r = block.rect;
-    
-    // Determine minimum side length to decide subdivision strategy
-    float minSide = std::min(r.width(), r.height());
-    
-    // RULE 1: For large blocks (min side > 500) - use only rectangular subdivisions
-    if (minSide > 500.0f) {
-        bool splitHorizontal = (r.width() >= r.height());
-        if (r.width() < 400.0f && r.height() >= 300.0f) {
-            splitHorizontal = false;
-        } else if (r.height() < 300.0f && r.width() >= 500.0f) {
-            splitHorizontal = true;
-        } else {
-            splitHorizontal = axisDist(gen) == 0;
-        }
-
-        float t = splitDist(gen);
-        if (splitHorizontal) {
-            float splitX = r.left() + r.width() * t;
-            blocks.push_back({QRectF(r.left(), r.top(), splitX - r.left(), r.height()), block.depth + 1, {}});
-            blocks.push_back({QRectF(splitX, r.top(), r.right() - splitX, r.height()), block.depth + 1, {}});
-        } else {
-            float splitY = r.top() + r.height() * t;
-            blocks.push_back({QRectF(r.left(), r.top(), r.width(), splitY - r.top()), block.depth + 1, {}});
-            blocks.push_back({QRectF(r.left(), splitY, r.width(), r.bottom() - splitY), block.depth + 1, {}});
-        }
-    }
-    // RULE 2: For medium blocks (400 <= min side <= 700) - use alternative subdivisions with internal roads
-    else {
-        // Create a new block with the rectangle and depth
-        Block newBlock = {r, block.depth + 1, {}};
-        
-        // Create external roads that bound the block - these will be passed to internal road generation
-        std::vector<std::unique_ptr<AbstractRoad>> externalRoads;
-        
-        // Create roads for each side of the block
-        externalRoads.push_back(std::make_unique<ResidentialRoad>(
-            QVector3D(r.left(), 0, r.top()), QVector3D(r.right(), 0, r.top()), 20.0f)); // Top
-        externalRoads.push_back(std::make_unique<ResidentialRoad>(
-            QVector3D(r.right(), 0, r.top()), QVector3D(r.right(), 0, r.bottom()), 20.0f)); // Right
-        externalRoads.push_back(std::make_unique<ResidentialRoad>(
-            QVector3D(r.right(), 0, r.bottom()), QVector3D(r.left(), 0, r.bottom()), 20.0f)); // Bottom
-        externalRoads.push_back(std::make_unique<ResidentialRoad>(
-            QVector3D(r.left(), 0, r.bottom()), QVector3D(r.left(), 0, r.top()), 20.0f)); // Left
-        
-        // Generate internal roads within the block using the external roads as constraints
-        newBlock.generateInternalRoads(externalRoads);
-        
-        // Mark the block as fully generated by adding it to the blocks list
-        blocks.push_back(std::move(newBlock));
-    }
-}
-
-std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::blocksToRoads(
-    const std::vector<Block>& blocks) const
-{
-    std::vector<std::unique_ptr<AbstractRoad>> roads;
-    std::set<std::pair<QPointF, QPointF>, QPointFPairCompare> addedRoads; // избегаем дубликатов
-
-    auto addUniqueRoad = [&](const QPointF& a, const QPointF& b) {
-        QPointF p1 = a, p2 = b;
-        if (p1.x() > p2.x() || (p1.x() == p2.x() && p1.y() > p2.y())) {
-            std::swap(p1, p2);
-        }
-        if (addedRoads.insert({p1, p2}).second) {
-            roads.push_back(std::make_unique<ResidentialRoad>(
-                QVector3D(p1.x(), 0, p1.y()),
-                QVector3D(p2.x(), 0, p2.y())
-            ));
-        }
-    };
-
-    // Для каждого блока добавляем его границы как дороги
-    for (const auto& block : blocks) {
-        QRectF r = block.rect;
-        // Левая граница
-        addUniqueRoad(QPointF(r.left(), r.top()), QPointF(r.left(), r.bottom()));
-        // Правая граница
-        addUniqueRoad(QPointF(r.right(), r.top()), QPointF(r.right(), r.bottom()));
-        // Верхняя граница
-        addUniqueRoad(QPointF(r.left(), r.top()), QPointF(r.right(), r.top()));
-        // Нижняя граница
-        addUniqueRoad(QPointF(r.left(), r.bottom()), QPointF(r.right(), r.bottom()));
-    }
-
-    return roads;
 }
 
 } // namespace City

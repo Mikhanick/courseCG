@@ -1,38 +1,80 @@
 #include "SimpleBuildingSelector.h"
 #include <QColor>
 #include <algorithm>
+#include <random>
 
 namespace City {
 
 GraphicObject SimpleBuildingSelector::select(
-    const QRectF& availableArea, int population, float cost)
+    const QRectF& availableArea)
 {
-    float width = static_cast<float>(availableArea.height()) * 0.8;
-    float depth = static_cast<float>(availableArea.width());
+    // Учитываем отступ 5 единиц со всех сторон
+    float availableWidth = std::max(0.0f, static_cast<float>(availableArea.height()) - 10.0f);  // ширина здания от глубины участка с отступом
+    float availableDepth = std::max(0.0f, static_cast<float>(availableArea.width()) - 10.0f);   // глубина здания от длины участка с отступом
 
-    // Определяем тип здания по стоимости и населению
-    BuildingType type;
+    // Ограничиваем размеры доступного пространства (минимум 10 для корректного размещения)
+    availableWidth = std::max(10.0f, availableWidth);
+    availableDepth = std::max(10.0f, availableDepth);
 
-    if (cost > 0.7f && population > 200) {
-        type = BuildingType::High;
-    } else if (cost > 0.4f || population > 80) {
-        type = BuildingType::Mid;
-    } else {
-        type = BuildingType::Low;
+    // Создаем список возможных зданий с их размерами
+    struct BuildingTemplate {
+        BuildingType type;
+        float minWidth, maxWidth;
+        float minDepth, maxDepth;
+        float minHeight, maxHeight;
+    };
+
+    std::vector<BuildingTemplate> templates = {
+        {BuildingType::Low, 10.0f, 30.0f, 10.0f, 40.0f, 10.0f, 25.0f},    // низкое здание
+        {BuildingType::Mid, 15.0f, 50.0f, 15.0f, 70.0f, 20.0f, 40.0f},    // среднее здание
+        {BuildingType::High, 20.0f, 80.0f, 20.0f, 100.0f, 30.0f, 80.0f}   // высокое здание
+    };
+
+    // Находим все шаблоны, которые помещаются в доступное пространство
+    std::vector<BuildingTemplate> fittingTemplates;
+    for (const auto& tmpl : templates) {
+        if (tmpl.maxWidth <= availableWidth && tmpl.maxDepth <= availableDepth) {
+            fittingTemplates.push_back(tmpl);
+        }
     }
 
-    // Ограничиваем размеры
-    width = std::max(10.0f, std::min(width, 100.0f));
-    depth = std::max(10.0f, std::min(depth, 150.0f));
-
-    float height;
-    switch (type) {
-        case BuildingType::High:  height = 50.0f + cost * 20.0f; break;
-        case BuildingType::Mid:   height = 30.0f + cost * 8.0f;  break;
-        default:                  height = 20.0f + cost * 4.0f;   break;
+    // Если ни один шаблон не помещается, используем минимальные размеры
+    if (fittingTemplates.empty()) {
+        // Выбираем случайное здание, уменьшая его до размеров доступного пространства
+        static int buildingCounter = 0;
+        buildingCounter++;
+        
+        int randType = (static_cast<int>(availableArea.x() + availableArea.y()) + buildingCounter) % 3;
+        BuildingType type = static_cast<BuildingType>(randType);
+        
+        float width = std::min(availableWidth, 30.0f);
+        float depth = std::min(availableDepth, 40.0f);
+        float height = std::min(25.0f, std::min(width, depth) * 0.8f); // высота пропорциональна ширине
+        
+        switch (type) {
+            case BuildingType::High:  return createHighRise(width, depth, height);
+            case BuildingType::Mid:   return createMidRise(width, depth, height);
+            default:                  return createLowRise(width, depth, height);
+        }
     }
 
-    switch (type) {
+    // Случайно выбираем подходящий шаблон
+    static std::mt19937 gen(std::random_device{}());
+    std::uniform_int_distribution<> dist(0, static_cast<int>(fittingTemplates.size()) - 1);
+    auto chosenTemplate = fittingTemplates[dist(gen)];
+    
+    // Генерируем случайные размеры в пределах шаблона, ограниченные доступным пространством
+    std::uniform_real_distribution<float> widthDist(chosenTemplate.minWidth, 
+        std::min(chosenTemplate.maxWidth, availableWidth));
+    std::uniform_real_distribution<float> depthDist(chosenTemplate.minDepth, 
+        std::min(chosenTemplate.maxDepth, availableDepth));
+    std::uniform_real_distribution<float> heightDist(chosenTemplate.minHeight, chosenTemplate.maxHeight);
+
+    float width = widthDist(gen);
+    float depth = depthDist(gen);
+    float height = heightDist(gen);
+
+    switch (chosenTemplate.type) {
         case BuildingType::High:  return createHighRise(width, depth, height);
         case BuildingType::Mid:   return createMidRise(width, depth, height);
         default:                  return createLowRise(width, depth, height);

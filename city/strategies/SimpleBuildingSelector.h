@@ -11,7 +11,7 @@ private:
     enum class BuildingType { Low, Mid, High };
 
 public:
-    GraphicObject select(const QRectF& availableArea, int population, float cost) override;
+    GraphicObject select(const QRectF& availableArea) override;
 
 private:
     GraphicObject createLowRise(float width, float depth, float height) const;

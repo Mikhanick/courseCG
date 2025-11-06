@@ -8,6 +8,18 @@
 
 namespace City {
 
+enum class RoadType {
+    RESIDENTIAL,
+    BLOCK_SEPARATOR
+};
+
+enum class BuildingSide {
+    LEFT = -1,        // Only left side
+    BOTH = 0,         // Both sides
+    RIGHT = 1,        // Only right side
+    NONE = 2          // No buildings
+};
+
 class AbstractRoad {
 public:
     virtual ~AbstractRoad() = default;
@@ -18,11 +30,10 @@ public:
     virtual float getWidth() const = 0;
     virtual float getLength() const = 0;
 
-    // Население
-    virtual int getAssignedPopulation() const = 0;
-    virtual void setAssignedPopulation(int pop) = 0;
+    // Тип дороги
+    virtual RoadType getType() const = 0;
 
-    // Вес для распределения населения (например, 1.0 для жилых, 0.3 для магистралей)
+    // Вес для распределения (например, 1.0 для жилых, 0.3 для магистралей)
     virtual float getTypeWeight() const = 0;
 
     // Размещение зданий
@@ -37,16 +48,19 @@ public:
     // Добавление зданий
     virtual void addBuildingMesh(GraphicObject&& building) = 0;
     
-    // Направление размещения зданий (0 - обе стороны, 1 - правая сторона, -1 - левая сторона)
+    // Направление размещения зданий (-1 - левая сторона, 0 - нет зданий, 1 - правая сторона, 2 - обе стороны)
     virtual void setBuildingSide(int side) = 0;
     virtual int getBuildingSide() const = 0;
+    
+    // Направление размещения зданий с использованием перечисления
+    virtual void setBuildingSideFromEnum(BuildingSide side) = 0;
+    virtual BuildingSide getBuildingSideAsEnum() const = 0;
     
     // Prototype pattern - clone method
     virtual std::unique_ptr<AbstractRoad> clone() const = 0;
 
 protected:
     std::vector<GraphicObject> m_buildingMeshes;
-    int m_buildingSide = 0; // 0 - обе стороны, 1 - правая, -1 - левая
 };
 
 } // namespace City

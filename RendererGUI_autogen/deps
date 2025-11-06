@@ -9,13 +9,12 @@ RendererGUI_autogen/timestamp: \
 	/drive_d/Documents/CG_curs/program/city/core/AbstractRoad.h \
 	/drive_d/Documents/CG_curs/program/city/core/CityMap.cpp \
 	/drive_d/Documents/CG_curs/program/city/core/CityMap.h \
+	/drive_d/Documents/CG_curs/program/city/objects/BlockSeparatorRoad.cpp \
+	/drive_d/Documents/CG_curs/program/city/objects/BlockSeparatorRoad.h \
 	/drive_d/Documents/CG_curs/program/city/objects/ResidentialRoad.cpp \
 	/drive_d/Documents/CG_curs/program/city/objects/ResidentialRoad.h \
 	/drive_d/Documents/CG_curs/program/city/strategies/AbstractBuildingSelector.h \
-	/drive_d/Documents/CG_curs/program/city/strategies/AbstractCostStrategy.h \
 	/drive_d/Documents/CG_curs/program/city/strategies/AbstractRoadGenerationStrategy.h \
-	/drive_d/Documents/CG_curs/program/city/strategies/DistanceFromCenterCostStrategy.cpp \
-	/drive_d/Documents/CG_curs/program/city/strategies/DistanceFromCenterCostStrategy.h \
 	/drive_d/Documents/CG_curs/program/city/strategies/SimpleBuildingSelector.cpp \
 	/drive_d/Documents/CG_curs/program/city/strategies/SimpleBuildingSelector.h \
 	/drive_d/Documents/CG_curs/program/city/strategies/SimpleRoadGenerationStrategy.cpp \

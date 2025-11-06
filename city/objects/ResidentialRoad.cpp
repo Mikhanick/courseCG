@@ -3,6 +3,7 @@
 #include <cmath>
 #include <QtMath>
 #include <iostream>
+#include <random>
 
 namespace City {
 
@@ -17,42 +18,85 @@ float ResidentialRoad::getWidth() const { return m_width; }
 float ResidentialRoad::getLength() const {
     return QVector3D(m_end - m_start).length();
 }
-int ResidentialRoad::getAssignedPopulation() const { return m_assignedPopulation; }
-void ResidentialRoad::setAssignedPopulation(int pop) { m_assignedPopulation = pop; }
 float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
     float length = getLength();
-    if (length < 40.0f) return; // слишком короткая дорога
+    
+    // Глубина дома, используемая для отступов по краям
+    const float houseDepth = 40.0f; // максимальная глубина из SimpleBuildingSelector
+    
+    // Если длина дороги слишком короткая для размещения с отступами, выходим
+    if (length <= 2 * houseDepth) return;
 
-    // Доступная зона застройки: отступы от перекрёстков
-    float buildableLength = length - 40.0f; // 10 м с каждого конца
+    // Доступная длина для застройки с учетом отступов по краям
+    float buildableLength = length - 2 * houseDepth;
     if (buildableLength <= 0) return;
 
-    float buildableDepth = 50.0f; // глубина застройки от дороги
-
-    // Простая упаковка: участки по 200 м в длину с большим зазором между ними
-    const float plotLength = 200.0f;
-    const float gap = 50.0f; // Увеличенный зазор между участками (было 3.0f)
-    float currentPos = 20.0f; // начальный отступ
-
-    int totalPlots = static_cast<int>(buildableLength / (plotLength + gap));
-    if (totalPlots <= 0) totalPlots = 1;
-
-    for (int i = 0; i < totalPlots; ++i) {
-        float x = currentPos;
-        float w = qMin(plotLength, buildableLength - (currentPos - 10.0f));
-        if (w <= 5.0f) break;
-
-        plots.emplace_back(QRectF(x, 0, w, buildableDepth), 1); // population placeholder
-        currentPos += w + gap;
-    }
+    // Определяем глубину застройки в зависимости от стороны размещения
+    float totalBuildableDepth = 50.0f; // общая глубина застройки от дороги
+    float buildableDepth = totalBuildableDepth;
     
-    // Если здания должны строиться только с одной стороны, уменьшаем доступную глубину
-    if (m_buildingSide != 0) {
-        for (auto& plot : plots) {
-            plot.first.setHeight(plot.first.height() / 2.0f); // только половина глубины
+    // Если здания размещаются только с одной стороны, уменьшаем доступную глубину
+    // Или если m_buildingSide равно BuildingSide::NONE, не создаем участки
+    if (m_buildingSide == BuildingSide::LEFT || m_buildingSide == BuildingSide::RIGHT) {
+        buildableDepth = totalBuildableDepth / 2.0f;
+    } else if (m_buildingSide == BuildingSide::NONE) {
+        return; // Don't create plots if no buildings should be placed
+    }
+    // If m_buildingSide == BuildingSide::BOTH, keep the full depth
+
+    if (length <= 100.0f) {
+        // Для дорог длиной до 100 создаем один участок, занимающий 20-90% длины
+        // Участок начинается после отступа от начала дороги
+        float minPlotLength = buildableLength * 0.2f; // 20% от доступной длины
+        float maxPlotLength = buildableLength * 0.9f; // 90% от доступной длины
+        
+        // Вычисляем случайную длину участка в заданном диапазоне
+        // Для детерминированного результата используем координаты начала дороги
+        float deterministicValue = fmod(m_start.x() * 1000.0f + m_start.z(), 1000.0f);
+        if (deterministicValue < 0) deterministicValue += 1000.0f; // обеспечиваем положительное значение
+        float plotLength = minPlotLength + 
+            (static_cast<float>(deterministicValue) / 1000.0f) * 
+            (maxPlotLength - minPlotLength);
+        
+        // Позиция участка - центрируем его в доступной области или используем фиксированное смещение
+        float plotStart = houseDepth + (buildableLength - plotLength) / 2.0f;
+        
+        plots.emplace_back(QRectF(plotStart, 0, plotLength, buildableDepth), 1);
+    } else {
+        // Для дорог длиной более 100 создаем несколько участков
+        // Участки начинаются после отступа от начала дороги
+        const float minPlotLength = 20.0f; // минимальный размер участка
+        const float gap = 5.0f; // зазор между участками
+        
+        float currentPos = houseDepth; // начальная позиция после отступа
+        
+        while (currentPos < houseDepth + buildableLength) {
+            float remainingLength = (houseDepth + buildableLength) - currentPos;
+            
+            if (remainingLength <= minPlotLength) {
+                // Если оставшееся пространство слишком мало для нового участка,
+                // добавляем его к последнему участку (если он есть)
+                if (!plots.empty()) {
+                    plots.back().first.setWidth(plots.back().first.width() + remainingLength);
+                }
+                break;
+            }
+            
+            // Вычисляем длину текущего участка (не больше оставшегося пространства минус зазор)
+            float plotLength = qMin(remainingLength - gap, 50.0f); // ограничиваем максимальный размер участка
+            if (plotLength < minPlotLength) {
+                plotLength = remainingLength; // если оставшееся пространство меньше минимального, используем всё
+            }
+            
+            if (plotLength >= minPlotLength) {
+                plots.emplace_back(QRectF(currentPos, 0, plotLength, buildableDepth), 1);
+                currentPos += plotLength + gap;
+            } else {
+                break;
+            }
         }
     }
 }
@@ -69,13 +113,15 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
     QVector3D normal = calculateNormal();
     
     // Если здания должны строиться только с одной стороны, корректируем смещение
-    if (m_buildingSide == 1) { // правая сторона
+    if (m_buildingSide == BuildingSide::RIGHT) { // правая сторона (ранее 1)
         // Используем нормаль как есть (положительное смещение вправо)
-    } else if (m_buildingSide == -1) { // левая сторона
+    } else if (m_buildingSide == BuildingSide::LEFT) { // левая сторона (ранее -1)
         // Инвертируем нормаль (отрицательное смещение влево)
         normal = -normal;
     }
-    // Если m_buildingSide == 0, используем нормаль как есть (обе стороны)
+    // Если m_buildingSide == BuildingSide::BOTH, используем нормаль как есть (обе стороны)
+    // Если m_buildingSide == BuildingSide::NONE, здания не должны создаваться, 
+    // но если этот метод вызывается, то участок уже создан, поэтому обрабатываем как обе стороны
     
     QVector3D result = pos + normal * lateral;
     
@@ -125,17 +171,69 @@ void ResidentialRoad::addBuildingMesh(GraphicObject&& building) {
 }
 
 void ResidentialRoad::setBuildingSide(int side) {
-    m_buildingSide = side;
+    switch (side) {
+        case -1:
+            m_buildingSide = BuildingSide::LEFT;
+            break;
+        case 0:
+            m_buildingSide = BuildingSide::NONE;
+            break;
+        case 1:
+            m_buildingSide = BuildingSide::RIGHT;
+            break;
+        case 2:
+            m_buildingSide = BuildingSide::BOTH;
+            break;
+        default:
+            // For any other value, default to both sides
+            m_buildingSide = BuildingSide::BOTH;
+            break;
+    }
 }
 
 int ResidentialRoad::getBuildingSide() const {
+    // Convert the enum to int according to the original mapping
+    switch (m_buildingSide) {
+        case BuildingSide::LEFT:
+            return -1;
+        case BuildingSide::NONE:
+            return 0;
+        case BuildingSide::RIGHT:
+            return 1;
+        case BuildingSide::BOTH:
+            return 2;
+        default:
+            return 2; // default to both sides
+    }
+}
+
+void ResidentialRoad::setBuildingSideFromEnum(BuildingSide side) {
+    m_buildingSide = side;
+}
+
+BuildingSide ResidentialRoad::getBuildingSideAsEnum() const {
     return m_buildingSide;
 }
 
 std::unique_ptr<AbstractRoad> ResidentialRoad::clone() const {
     auto newRoad = std::make_unique<ResidentialRoad>(m_start, m_end, m_width);
-    newRoad->setAssignedPopulation(m_assignedPopulation);
-    newRoad->setBuildingSide(m_buildingSide);
+    // Convert the enum back to int for the setBuildingSide interface
+    int sideValue = 0;
+    switch (m_buildingSide) {
+        case BuildingSide::LEFT:
+            sideValue = -1;
+            break;
+        case BuildingSide::NONE:
+            sideValue = 0;
+            break;
+        case BuildingSide::RIGHT:
+            sideValue = 1;
+            break;
+        case BuildingSide::BOTH:
+            sideValue = 2;
+            break;
+    }
+    newRoad->setBuildingSide(sideValue);
     return newRoad;
 }
 

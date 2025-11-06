@@ -4,7 +4,7 @@
 namespace City {
 
 std::vector<std::unique_ptr<AbstractRoad>> SimpleRoadGenerationStrategy::generate(
-    float cityArea, int totalPopulation)
+    float cityArea)
 {
     std::vector<std::unique_ptr<AbstractRoad>> roads;
     

@@ -1,14 +1,14 @@
-#ifndef RESIDENTIALROAD_H
-#define RESIDENTIALROAD_H
+#ifndef BLOCKSEPARATORROAD_H
+#define BLOCKSEPARATORROAD_H
 
 #include "../core/AbstractRoad.h"
 #include <QVector3D>
 
 namespace City {
 
-class ResidentialRoad : public AbstractRoad {
+class BlockSeparatorRoad : public AbstractRoad {
 public:
-    ResidentialRoad(const QVector3D& start, const QVector3D& end, float width = 12.0f);
+    BlockSeparatorRoad(const QVector3D& start, const QVector3D& end, float width = 20.0f);
 
     // Геометрия
     QVector3D getStart() const override;
@@ -17,12 +17,12 @@ public:
     float getLength() const override;
 
     // Тип дороги
-    RoadType getType() const override { return RoadType::RESIDENTIAL; }
+    RoadType getType() const override { return RoadType::BLOCK_SEPARATOR; }
 
-    // Вес для распределения - всегда 1.0 для жилых дорог
+    // Вес для распределения - всегда 0, так как не размещает дома
     float getTypeWeight() const override;
 
-    // Размещение зданий
+    // Размещение зданий - пустая реализация, не размещает здания
     void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const override;
     QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize) const override;
     QVector3D calculateNormal() const override;
@@ -31,10 +31,10 @@ public:
     GraphicObject getRoadMesh() const override;
     std::vector<GraphicObject> getBuildingMeshes() const override;
     
-    // Добавление зданий
+    // Добавление зданий - игнорируется
     void addBuildingMesh(GraphicObject&& building) override;
     
-    // Направление размещения зданий (-1 - левая сторона, 0 - нет зданий, 1 - правая сторона, 2 - обе стороны)
+    // Направление размещения зданий - не используется, всегда 0
     void setBuildingSide(int side) override;
     int getBuildingSide() const override;
     
@@ -49,9 +49,8 @@ private:
     QVector3D m_start;
     QVector3D m_end;
     float m_width;
-    BuildingSide m_buildingSide = BuildingSide::BOTH; // Default to both sides
 };
 
 } // namespace City
 
-#endif // RESIDENTIALROAD_H
+#endif // BLOCKSEPARATORROAD_H

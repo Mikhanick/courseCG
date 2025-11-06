@@ -13,11 +13,10 @@ public:
 
     /**
      * @param cityArea Общая площадь города (м²)
-     * @param totalPopulation Общее население
      * @return Список уникальных указателей на дороги
      */
     virtual std::vector<std::unique_ptr<AbstractRoad>> generate(
-        float cityArea, int totalPopulation) = 0;
+        float cityArea) = 0;
 };
 
 } // namespace City

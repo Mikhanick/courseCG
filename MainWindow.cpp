@@ -11,7 +11,7 @@
 #include "renderer/GraphicObject.h"
 #include "city/core/CityMap.h"
 #include "city/strategies/SimpleRoadGenerationStrategy.h"
-#include "city/strategies/DistanceFromCenterCostStrategy.h"
+#include <QDebug>
 #include "city/strategies/SimpleBuildingSelector.h"
 #include "city/strategies/SubdivisionRoadGenerationStrategy.h"
 #include <iostream>
@@ -19,7 +19,6 @@
 #include <cmath>
 
 using City::CityMap;
-using City::DistanceFromCenterCostStrategy;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
@@ -119,7 +118,7 @@ void MainWindow::GenerateCity(int gridSize) {
 
 void MainWindow::GenerateCityWithMap() {
     // Создание земли — зелёный квадрат под весь город, состоящий из меньших полигонов
-    const float groundSize = 1200.0f; // Увеличенный размер для удлинненной дороги
+    const float groundSize = 1000.0f; // Увеличенный размер для удлинненной дороги
     const float tileSize = 20.0f; // Размер одного тайла земли
     
     // Создаем сетку из меньших квадратов вместо одного большого полигона
@@ -150,17 +149,15 @@ void MainWindow::GenerateCityWithMap() {
 
     // Создание генератора города с использованием новых классов
     auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>(); 
-    auto costStrategy = std::make_unique<City::DistanceFromCenterCostStrategy>(QVector2D(0, 0));
     auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
 
     m_cityMap = std::make_unique<City::CityMap>(
         std::move(roadGen),
-        std::move(costStrategy),
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(1000000.0f, 10000);
-
+    m_cityMap->generate(600000.0f);
+    qDebug() << "Передано в отрисовку";
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
     
