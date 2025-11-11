@@ -17,8 +17,10 @@ SOURCES += \
     city/strategies/SubdivisionRoadGenerationStrategy.cpp \
     city/strategies/SimpleRoadGenerationStrategy.cpp \
     city/objects/ResidentialRoad.cpp \
-
-    city/strategies/SimpleBuildingSelector.cpp
+    city/objects/BuildingModel.cpp\
+    city/strategies/SimpleBuildingSelector.cpp\
+    city/loaders/ModelLoader.cpp\
+    city/strategies/SmartBuildingSelector.cpp
 
 HEADERS += \
     MainWindow.h \
@@ -45,7 +47,11 @@ HEADERS += \
     city/strategies/SimpleRoadGenerationStrategy.h \
     city/objects/ResidentialRoad.h \
 
-    city/strategies/SimpleBuildingSelector.h
+    city/strategies/SimpleBuildingSelector.h\
+    city/loaders/ModelLoader.h\
+    city/strategies/SmartBuildingSelector.h\
+    city/objects/BuildingModel.h\
+    city/objects/RoadEnums.h\
 
 # Указываем путь к заголовкам
 INCLUDEPATH += renderer

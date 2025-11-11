@@ -14,6 +14,7 @@
 #include <QDebug>
 #include "city/strategies/SimpleBuildingSelector.h"
 #include "city/strategies/SubdivisionRoadGenerationStrategy.h"
+#include "city/strategies/SmartBuildingSelector.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -22,8 +23,8 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
-    setFixedSize(800, 600);
+    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
+    setFixedSize(1920, 1200);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -36,9 +37,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
 
-    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.7, 0.3)));
+    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.9, 0.3)));
     GenerateCityWithMap(); // Use the new city map generation
 
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);
@@ -149,7 +150,8 @@ void MainWindow::GenerateCityWithMap() {
 
     // Создание генератора города с использованием новых классов
     auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>(); 
-    auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
+    auto buildingSelector = std::make_unique<City::SmartBuildingSelector>("/drive_d/Documents/CG_curs/program/buildings");
+    // auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
 
     m_cityMap = std::make_unique<City::CityMap>(
         std::move(roadGen),
@@ -233,7 +235,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent* event) {
 
 void MainWindow::wheelEvent(QWheelEvent* event) {
     m_moveSpeed += event->angleDelta().y() * 0.001f;
-    m_moveSpeed = qBound(0.05f, m_moveSpeed, 0.5f);
+    m_moveSpeed = qBound(0.05f, m_moveSpeed, 3.5f);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event) {

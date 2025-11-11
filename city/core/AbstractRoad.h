@@ -5,19 +5,13 @@
 #include <QRectF>
 #include <vector>
 #include <utility>
+#include "../objects/RoadEnums.h"
 
 namespace City {
 
 enum class RoadType {
     RESIDENTIAL,
     BLOCK_SEPARATOR
-};
-
-enum class BuildingSide {
-    LEFT = -1,        // Only left side
-    BOTH = 0,         // Both sides
-    RIGHT = 1,        // Only right side
-    NONE = 2          // No buildings
 };
 
 class AbstractRoad {
@@ -48,9 +42,7 @@ public:
     // Добавление зданий
     virtual void addBuildingMesh(GraphicObject&& building) = 0;
     
-    // Направление размещения зданий (-1 - левая сторона, 0 - нет зданий, 1 - правая сторона, 2 - обе стороны)
-    virtual void setBuildingSide(int side) = 0;
-    virtual int getBuildingSide() const = 0;
+    
     
     // Направление размещения зданий с использованием перечисления
     virtual void setBuildingSideFromEnum(BuildingSide side) = 0;

@@ -34,13 +34,9 @@ public:
     // Добавление зданий - игнорируется
     void addBuildingMesh(GraphicObject&& building) override;
     
-    // Направление размещения зданий - не используется, всегда 0
-    void setBuildingSide(int side) override;
-    int getBuildingSide() const override;
     
-    // Направление размещения зданий с использованием перечисления
-    void setBuildingSideFromEnum(BuildingSide side) override;
-    BuildingSide getBuildingSideAsEnum() const override;
+    virtual void setBuildingSideFromEnum(BuildingSide side) override;
+    virtual BuildingSide getBuildingSideAsEnum() const override;
     
     // Prototype pattern - clone method
     std::unique_ptr<AbstractRoad> clone() const override;

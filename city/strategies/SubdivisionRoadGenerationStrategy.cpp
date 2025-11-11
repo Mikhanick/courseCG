@@ -20,14 +20,14 @@
 namespace City {
 
 // Constants for road generation
-constexpr int MIN_ROAD_LENGTH_STEPS = 6;   // Minimum road length in grid steps
+constexpr int MIN_ROAD_LENGTH_STEPS = 7;   // Minimum road length in grid steps
 constexpr int MAX_ROAD_LENGTH_STEPS = 18;   // Maximum road length in grid steps
 constexpr int MAX_ROADS_PER_BLOCK = 40;    // Maximum roads per block (W)
 constexpr int MAX_RELOCATION_ATTEMPTS = 120; // Maximum relocation attempts for intersections (Q)
-constexpr int EXCLUSION_RADIUS = 8; // Maximum relocation attempts for intersections (Q)
-constexpr float GRID_STEP = 10.0f;         // Grid step size
-constexpr float BOUNDARY_BUFFER = 30; // Buffer from block boundary
-constexpr int MAX_ROADS_PER_POINT = 4;     // Максимальное количество дорог в одной точке
+constexpr int EXCLUSION_RADIUS = 7; // Maximum relocation attempts for intersections (Q)
+constexpr float GRID_STEP = 12.f;         // Grid step size
+constexpr float BOUNDARY_BUFFER = 40; // Buffer from block boundary
+constexpr int MAX_ROADS_PER_POINT = 5;     // Максимальное количество дорог в одной точке
 
 
 // Helper function to generate random float between min and max
@@ -161,22 +161,26 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
     qDebug() << "Размер квартала:" << blockRect.width() << "x" << blockRect.height();
     constexpr float EXCLUSION_EPSILON = 1e-5f;
     constexpr float MIN_ANGLE_BETWEEN_ROADS = M_PI / 3.5f; 
-    constexpr float CORNER_BUFFER = 3.0f * GRID_STEP; // Минимальный отступ от углов квартала
+    constexpr float CORNER_BUFFER = 3.0f * GRID_STEP;
 
-    // Параметры для определения стороны застройки (в блоках сетки)
-    constexpr float SEARCH_DISTANCE_PERPENDICULAR_BLOCKS = 3.0f; // N — расстояние перпендикулярно дороге
-    constexpr float OFFSET_FROM_ENDS_BLOCKS = 1.0f;              // M — отступ от концов
+    // Параметры проверки сторон (в блоках сетки) - настраиваемые константы
+    constexpr float SEARCH_DISTANCE_PERPENDICULAR_BLOCKS = 2.5f; // N
+    constexpr float OFFSET_FROM_ENDS_BLOCKS = 0.5f;              // M
     const float searchDistance = SEARCH_DISTANCE_PERPENDICULAR_BLOCKS * GRID_STEP;
     const float offsetDistance = OFFSET_FROM_ENDS_BLOCKS * GRID_STEP;
 
-    qDebug() << "Параметры застройки:";
-    qDebug() << "  N (перпендикулярная зона поиска):" << SEARCH_DISTANCE_PERPENDICULAR_BLOCKS << "блоков →" << searchDistance << "ед";
-    qDebug() << "  M (зона отступов от концов):" << OFFSET_FROM_ENDS_BLOCKS << "блоков →" << offsetDistance << "ед";
+    qDebug() << "\n=== ПАРАМЕТРЫ ЗАСТРОЙКИ ===";
+    qDebug() << "  Перпендикулярное расстояние поиска (N):" << SEARCH_DISTANCE_PERPENDICULAR_BLOCKS 
+             << "блоков →" << searchDistance << "единиц";
+    qDebug() << "  Отступ от концов (M):" << OFFSET_FROM_ENDS_BLOCKS 
+             << "блоков →" << offsetDistance << "единиц";
+    qDebug() << "  Минимальная длина дороги:" << MIN_ROAD_LENGTH_STEPS * GRID_STEP << "единиц";
+    qDebug() << "  Максимальная длина дороги:" << MAX_ROAD_LENGTH_STEPS * GRID_STEP << "единиц";
 
     std::vector<std::unique_ptr<AbstractRoad>> roads;
     auto findPointIndex = [EXCLUSION_EPSILON](const QVector3D& point, const std::vector<QVector3D>& points) -> int {
         for (size_t i = 0; i < points.size(); ++i) {
-            if ((point - points[i]).length() < EXCLUSION_EPSILON) {
+            if ((point - points[i]).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
                 return static_cast<int>(i);
             }
         }
@@ -190,69 +194,90 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
         blockRect.width() - 2 * BOUNDARY_BUFFER,
         blockRect.height() - 2 * BOUNDARY_BUFFER
     );
+    
+    if (innerRect.width() < MIN_ROAD_LENGTH_STEPS * GRID_STEP || 
+        innerRect.height() < MIN_ROAD_LENGTH_STEPS * GRID_STEP) {
+        qDebug() << "!!! ВНУТРЕННЯЯ ОБЛАСТЬ СЛИШКОМ МАЛА ДЛЯ ГЕНЕРАЦИИ ДОРОГ";
+        qDebug() << "    Ширина:" << innerRect.width() << ", Высота:" << innerRect.height();
+        qDebug() << "    Минимально допустимый размер:" << MIN_ROAD_LENGTH_STEPS * GRID_STEP;
+        return roads;
+    }
 
+    qDebug() << "\n=== СЕТКА ТОЧЕК ===";
     qDebug() << "Внутренняя область:" << innerRect.width() << "x" << innerRect.height();
     qDebug() << "Отступ от границ (BOUNDARY_BUFFER):" << BOUNDARY_BUFFER;
     qDebug() << "Шаг сетки (GRID_STEP):" << GRID_STEP;
-    qDebug() << "Мин/макс длина дороги (в шагах):" << MIN_ROAD_LENGTH_STEPS << "/" << MAX_ROAD_LENGTH_STEPS;
-    qDebug() << "Радиус запретной зоны (EXCLUSION_RADIUS):" << EXCLUSION_RADIUS << "шагов сетки";
-    qDebug() << "Макс дорог в точке (MAX_ROADS_PER_POINT):" << MAX_ROADS_PER_POINT;
-    qDebug() << "!!! АКТИВИРОВАНА РАСШИРЕННАЯ ПРОВЕРКА УГЛОВ (начало + конец)";
-    qDebug() << "!!! НОВАЯ ЛОГИКА: 1-2 точки генерации на каждой стороне квартала (отступ от углов:" << CORNER_BUFFER << ")";
 
     std::vector<QVector3D> gridPoints;
+    int gridCount = 0;
     for (float x = innerRect.left(); x <= innerRect.right() + EXCLUSION_EPSILON; x += GRID_STEP) {
         for (float z = innerRect.top(); z <= innerRect.bottom() + EXCLUSION_EPSILON; z += GRID_STEP) {
             if (x <= innerRect.right() + EXCLUSION_EPSILON && z <= innerRect.bottom() + EXCLUSION_EPSILON) {
                 gridPoints.push_back(QVector3D(x, 0, z));
+                gridCount++;
             }
         }
     }
-
-    qDebug() << "Создано внутренних точек сетки:" << gridPoints.size();
+    
+    qDebug() << "Создано внутренних точек сетки:" << gridPoints.size() << "(" << gridCount << ")";
     if (gridPoints.empty()) {
         qDebug() << "!!! СЕТКА ПУСТА - ЗАВЕРШЕНИЕ ГЕНЕРАЦИИ";
         return roads;
     }
 
-    // 2. ГЕНЕРАЦИЯ ТОЧЕК НА ГРАНИЦАХ КВАРТАЛА (1-2 точки на каждую сторону)
-    qDebug() << "\n--- ГЕНЕРАЦИЯ ГРАНИЧНЫХ ТОЧЕК ---";
+    // 2. ГЕНЕРАЦИЯ ТОЧЕК НА ГРАНИЦАХ КВАРТАЛА
+    qDebug() << "\n=== ГЕНЕРАЦИЯ ГРАНИЧНЫХ ТОЧЕК ===";
     std::vector<QVector3D> boundaryPoints;
     std::random_device rd;
     std::mt19937 gen(rd());
-
-    // Вспомогательная лямбда для генерации точек на стороне с мин. дистанцией
-    auto generateSidePoints = [&](float fixedCoord, float startCoord, float endCoord, bool isVertical) {
+    
+    auto generateSidePoints = [&](float fixedCoord, float startCoord, float endCoord, bool isVertical, const QString& sideName) {
         std::uniform_int_distribution<> numPointsDist(1, 2);
         int numPoints = numPointsDist(gen);
-        qDebug() << "  Генерация" << numPoints << "точек на стороне";
+        qDebug() << "  " << sideName << ": генерация" << numPoints << "точек";
         
         std::vector<float> coords;
         float sideLength = endCoord - startCoord;
-
+        
+        if (sideLength < 4.0f * GRID_STEP) {
+            qDebug() << "    Сторона слишком короткая для генерации точек (длина:" << sideLength << ")";
+            return;
+        }
+        
         for (int i = 0; i < numPoints; ++i) {
             float coord;
             bool valid;
             int attempts = 0;
-
+            
             do {
-                coord = startCoord + randomFloat(0.1f, 0.9f) * sideLength;
+                coord = startCoord + randomFloat(0.15f, 0.85f) * sideLength;
                 valid = true;
+                
+                // Проверяем расстояние до других точек на этой стороне и до углов
+                if (coord - startCoord < 2.0f * GRID_STEP || endCoord - coord < 2.0f * GRID_STEP) {
+                    valid = false;
+                }
+                
                 for (float existingCoord : coords) {
-                    if (std::abs(coord - existingCoord) < 2.0f * GRID_STEP) {
+                    if (std::abs(coord - existingCoord) < 2.5f * GRID_STEP) {
                         valid = false;
                         break;
                     }
                 }
+                
                 attempts++;
-            } while (!valid && attempts < 10);
-
+            } while (!valid && attempts < 20);
+            
             if (valid) {
                 coords.push_back(coord);
-                qDebug() << "    Сгенерирована точка на позиции:" << coord;
+                qDebug() << "    " << sideName << ": добавлена точка на позиции" << coord 
+                         << "(отступ от угла:" << coord - startCoord << ")";
+            } else {
+                qDebug() << "    " << sideName << ": не удалось сгенерировать точку после" << attempts << "попыток";
             }
         }
-
+        
+        // Создаем 3D точки
         for (float coord : coords) {
             if (isVertical) {
                 boundaryPoints.push_back(QVector3D(fixedCoord, 0, coord));
@@ -261,37 +286,41 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
             }
         }
     };
-
-    // Верхняя сторона (y = blockRect.top())
-    qDebug() << "\n  === ВЕРХНЯЯ СТОРОНА ===";
+    
+    // Генерация точек для всех четырех сторон
     generateSidePoints(blockRect.top(), 
-                       blockRect.left() + CORNER_BUFFER, 
-                       blockRect.right() - CORNER_BUFFER, false);
-
-    // Нижняя сторона (y = blockRect.bottom())
-    qDebug() << "\n  === НИЖНЯЯ СТОРОНА ===";
+                      blockRect.left(), 
+                      blockRect.right(), 
+                      false, "ВЕРХНЯЯ СТОРОНА");
+    
     generateSidePoints(blockRect.bottom(), 
-                       blockRect.left() + CORNER_BUFFER, 
-                       blockRect.right() - CORNER_BUFFER, false);
-
-    // Левая сторона (x = blockRect.left())
-    qDebug() << "\n  === ЛЕВАЯ СТОРОНА ===";
+                      blockRect.left(), 
+                      blockRect.right(), 
+                      false, "НИЖНЯЯ СТОРОНА");
+    
     generateSidePoints(blockRect.left(), 
-                       blockRect.top() + CORNER_BUFFER, 
-                       blockRect.bottom() - CORNER_BUFFER, true);
-
-    // Правая сторона (x = blockRect.right())
-    qDebug() << "\n  === ПРАВАЯ СТОРОНА ===";
+                      blockRect.top(), 
+                      blockRect.bottom(), 
+                      true, "ЛЕВАЯ СТОРОНА");
+    
     generateSidePoints(blockRect.right(), 
-                       blockRect.top() + CORNER_BUFFER, 
-                       blockRect.bottom() - CORNER_BUFFER, true);
-
+                      blockRect.top(), 
+                      blockRect.bottom(), 
+                      true, "ПРАВАЯ СТОРОНА");
+    
     qDebug() << "\nСгенерировано граничных точек всего:" << boundaryPoints.size();
     for (size_t i = 0; i < boundaryPoints.size(); ++i) {
-        qDebug() << "  Граничная точка" << i << ":" << boundaryPoints[i].x() << "," << boundaryPoints[i].z();
+        qDebug() << "  Граничная точка" << i << ":" 
+                 << "x=" << boundaryPoints[i].x() << ", z=" << boundaryPoints[i].z();
+    }
+    
+    if (boundaryPoints.empty()) {
+        qDebug() << "!!! НЕТ ГРАНИЧНЫХ ТОЧЕК ДЛЯ НАЧАЛА ГЕНЕРАЦИИ - ЗАВЕРШЕНИЕ";
+        return roads;
     }
 
     // 3. Инициализация структур данных
+    qDebug() << "\n=== ИНИЦИАЛИЗАЦИЯ СТРУКТУР ДАННЫХ ===";
     std::vector<QVector3D> visitedPoints;
     std::vector<std::pair<QVector3D, QVector3D>> roadSegments;
     std::vector<QRectF> exclusionZones;
@@ -299,8 +328,8 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
     std::vector<int> roadCounts;
 
     const float exclusionSize = EXCLUSION_RADIUS * GRID_STEP;
-    qDebug() << "!!! ФАКТИЧЕСКИЙ РАЗМЕР ЗОНЫ ЗАПРЕТА:" << exclusionSize << "единиц (радиус)";
-
+    qDebug() << "Размер зоны запрета:" << exclusionSize << "единиц (радиус)";
+    
     auto addVisitedPoint = [&](const QVector3D& point) {
         visitedPoints.push_back(point);
         exclusionZones.emplace_back(
@@ -309,140 +338,167 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
             exclusionSize * 2,
             exclusionSize * 2
         );
+        
         int idx = findPointIndex(point, allPoints);
         if (idx == -1) {
             allPoints.push_back(point);
             roadCounts.push_back(0);
+            qDebug() << "  Добавлена новая точка в allPoints (всего:" << allPoints.size() << ")";
         }
     };
-
-    // Добавляем граничные точки
-    qDebug() << "\n--- ИНИЦИАЛИЗАЦИЯ ГРАНИЧНЫХ ТОЧЕК ---";
+    
+    // Добавляем все граничные точки в посещенные
+    qDebug() << "\nДобавление граничных точек в посещенные:";
     for (const auto& point : boundaryPoints) {
         addVisitedPoint(point);
+        qDebug() << "  Добавлена точка:" << point.x() << "," << point.z();
     }
-
+    
     qDebug() << "\nНачальное состояние:";
-    qDebug() << "  Посещенных точек (граничные):" << visitedPoints.size();
+    qDebug() << "  Посещенных точек:" << visitedPoints.size();
     qDebug() << "  Зон запрета:" << exclusionZones.size();
-    qDebug() << "  Уникальных точек для счетчиков:" << allPoints.size();
+    qDebug() << "  Уникальных точек:" << allPoints.size();
 
-    // Вспомогательная функция для проверки углов
+    // 4. Вспомогательные функции
+    // Проверка углов между дорогами (исправленная версия с встроенной нормализацией)
     auto violatesAngleConstraint = [EXCLUSION_EPSILON, this](
         const QVector3D& startPoint, 
         const QVector3D& endPoint,
         const std::vector<std::pair<QVector3D, QVector3D>>& roadSegments,
         float minAngle) -> bool
     {
-        bool violationFound = false;
-        QVector3D newDirectionFromStart = (endPoint - startPoint).normalized();
-
-        // Проверка в начальной точке
+        // Вспомогательная функция для нормализации направления
+        auto normalizeDirection = [](const QVector3D& start, const QVector3D& end) -> QVector3D {
+            QVector3D dir = end - start;
+            float len = dir.length();
+            if (len < 1e-6f) return QVector3D(0, 0, 0);
+            return dir / len;
+        };
+        
+        const QVector3D newDirStart = normalizeDirection(startPoint, endPoint);
+        const QVector3D newDirEnd = -newDirStart; // Направление к конечной точке
+        
+        if (newDirStart.length() < 1e-6f) return false;
+        
+        // Проверка углов в начальной точке
         for (const auto& [existingStart, existingEnd] : roadSegments) {
-            bool sharesStartPoint = false;
-            QVector3D existingDirection;
-
-            if ((existingStart - startPoint).length() < EXCLUSION_EPSILON) {
-                sharesStartPoint = true;
-                existingDirection = (existingEnd - existingStart).normalized();
+            QVector3D existingDir;
+            bool sharesStart = false;
+            
+            if ((existingStart - startPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
+                existingDir = normalizeDirection(existingStart, existingEnd);
+                sharesStart = true;
+            } else if ((existingEnd - startPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
+                existingDir = normalizeDirection(existingEnd, existingStart);
+                sharesStart = true;
             }
-            else if ((existingEnd - startPoint).length() < EXCLUSION_EPSILON) {
-                sharesStartPoint = true;
-                existingDirection = (existingStart - existingEnd).normalized();
-            }
-
-            if (sharesStartPoint) {
-                float angle = calculateAngleBetweenVectors(newDirectionFromStart, existingDirection);
-                if (angle < minAngle) {
-                    violationFound = true;
+            
+            if (sharesStart && existingDir.length() > 1e-6f) {
+                float angle = calculateAngleBetweenVectors(newDirStart, existingDir);
+                if (angle < minAngle - 1e-5f) {
+                    return true;
                 }
             }
         }
-
-        // Проверка в конечной точке
-        QVector3D newDirectionToEnd = (startPoint - endPoint).normalized();
-
+        
+        // Проверка углов в конечной точке
         for (const auto& [existingStart, existingEnd] : roadSegments) {
-            bool sharesEndPoint = false;
-            QVector3D existingDirection;
-
-            if ((existingStart - endPoint).length() < EXCLUSION_EPSILON) {
-                sharesEndPoint = true;
-                existingDirection = (existingEnd - existingStart).normalized();
+            QVector3D existingDir;
+            bool sharesEnd = false;
+            
+            if ((existingStart - endPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
+                existingDir = normalizeDirection(existingStart, existingEnd);
+                sharesEnd = true;
+            } else if ((existingEnd - endPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
+                existingDir = normalizeDirection(existingEnd, existingStart);
+                sharesEnd = true;
             }
-            else if ((existingEnd - endPoint).length() < EXCLUSION_EPSILON) {
-                sharesEndPoint = true;
-                existingDirection = (existingStart - existingEnd).normalized();
-            }
-
-            if (sharesEndPoint) {
-                float angle = calculateAngleBetweenVectors(newDirectionToEnd, existingDirection);
-                if (angle < minAngle) {
-                    violationFound = true;
+            
+            if (sharesEnd && existingDir.length() > 1e-6f) {
+                float angle = calculateAngleBetweenVectors(newDirEnd, existingDir);
+                if (angle < minAngle - 1e-5f) {
+                    return true;
                 }
             }
         }
-        return violationFound;
+        
+        return false;
     };
 
-    // 4. Генерация дорог от граничных точек внутрь квартала
-    qDebug() << "\n--- ГЕНЕРАЦИЯ ДОРОГ ОТ ГРАНИЦ ВНУТРЬ ---";
+    // 5. Генерация дорог от граничных точек внутрь квартала
+    qDebug() << "\n=== ГЕНЕРАЦИЯ ДОРОГ ===";
     int consecutiveFails = 0;
     int totalAttempts = 0;
+    int successfulRoads = 0;
 
-    while (roads.size() < MAX_ROADS_PER_BLOCK && !visitedPoints.empty() && consecutiveFails < MAX_RELOCATION_ATTEMPTS) {
+    while (successfulRoads < MAX_ROADS_PER_BLOCK && !visitedPoints.empty() && 
+           consecutiveFails < MAX_RELOCATION_ATTEMPTS) 
+    {
         bool roadAdded = false;
-
+        
         for (int attempt = 0; attempt < MAX_RELOCATION_ATTEMPTS && !visitedPoints.empty(); ++attempt) {
             totalAttempts++;
-
-            // Выбор начальной точки (из посещённых)
-            std::uniform_int_distribution<> visitedDist(0, visitedPoints.size() - 1);
+            
+            // Выбор начальной точки (из посещенных)
+            std::uniform_int_distribution<> visitedDist(0, static_cast<int>(visitedPoints.size()) - 1);
             int startIdx = visitedDist(gen);
             QVector3D startPoint = visitedPoints[startIdx];
-
+            
             // Выбор конечной точки (из внутренней сетки)
-            std::uniform_int_distribution<> gridDist(0, gridPoints.size() - 1);
+            std::uniform_int_distribution<> gridDist(0, static_cast<int>(gridPoints.size()) - 1);
             int endIdx = gridDist(gen);
             QVector3D endPoint = gridPoints[endIdx];
-
-            // Проверка длины
+            
+            // Проверка расстояния
             float distance = (endPoint - startPoint).length();
             float minAllowedLength = MIN_ROAD_LENGTH_STEPS * GRID_STEP;
             float maxAllowedLength = MAX_ROAD_LENGTH_STEPS * GRID_STEP;
-
-            if (distance < minAllowedLength || distance > maxAllowedLength) continue;
-
+            
+            if (distance < minAllowedLength) {
+                continue;
+            }
+            
+            if (distance > maxAllowedLength) {
+                // Оптимизация: если точка слишком далеко, ищем ближайшую допустимую
+                QVector3D dir = (endPoint - startPoint).normalized();
+                endPoint = startPoint + dir * (maxAllowedLength * 0.9f);
+            }
+            
             // Проверка: является ли endPoint существующей конечной точкой?
             bool isExistingEndpoint = false;
             for (const auto& [rStart, rEnd] : roadSegments) {
-                if ((endPoint - rStart).length() < EXCLUSION_EPSILON || 
-                    (endPoint - rEnd).length() < EXCLUSION_EPSILON) {
+                if ((endPoint - rStart).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON || 
+                    (endPoint - rEnd).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
                     isExistingEndpoint = true;
                     break;
                 }
             }
-
+            
             // Проверка зоны запрета (если не существующая конечная точка)
             if (!isExistingEndpoint) {
                 bool inExclusionZone = false;
-                for (const auto& zone : exclusionZones) {
-                    if (endPoint.x() >= zone.left() - EXCLUSION_EPSILON && endPoint.x() <= zone.right() + EXCLUSION_EPSILON &&
-                        endPoint.z() >= zone.top() - EXCLUSION_EPSILON && endPoint.z() <= zone.bottom() + EXCLUSION_EPSILON) {
+                
+                for (size_t zi = 0; zi < exclusionZones.size(); ++zi) {
+                    const auto& zone = exclusionZones[zi];
+                    if (endPoint.x() >= zone.left() && endPoint.x() <= zone.right() &&
+                        endPoint.z() >= zone.top() && endPoint.z() <= zone.bottom()) {
                         inExclusionZone = true;
                         break;
                     }
                 }
+                
                 if (inExclusionZone) continue;
             }
-
-            // Проверка углов
-            if (violatesAngleConstraint(startPoint, endPoint, roadSegments, MIN_ANGLE_BETWEEN_ROADS)) continue;
-
+            
+            // Проверка углов между дорогами
+            if (violatesAngleConstraint(startPoint, endPoint, roadSegments, MIN_ANGLE_BETWEEN_ROADS)) {
+                continue;
+            }
+            
             // Проверка количества дорог в точках
             int startPointIdx = findPointIndex(startPoint, allPoints);
             int endPointIdx = findPointIndex(endPoint, allPoints);
-
+            
             if (startPointIdx == -1) {
                 allPoints.push_back(startPoint);
                 roadCounts.push_back(0);
@@ -453,31 +509,35 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
                 roadCounts.push_back(0);
                 endPointIdx = static_cast<int>(allPoints.size() - 1);
             }
-
-            bool wouldExceedStart = (roadCounts[startPointIdx] + 1) > MAX_ROADS_PER_POINT;
-            bool wouldExceedEnd = (roadCounts[endPointIdx] + 1) > MAX_ROADS_PER_POINT;
-            if (wouldExceedStart || wouldExceedEnd) continue;
-
-            // Проверка пересечений
+            
+            if (roadCounts[startPointIdx] >= MAX_ROADS_PER_POINT || 
+                roadCounts[endPointIdx] >= MAX_ROADS_PER_POINT) {
+                continue;
+            }
+            
+            // Проверка пересечений (оптимизированная)
             bool intersects = false;
             for (size_t ri = 0; ri < roadSegments.size(); ++ri) {
                 const auto& [rStart, rEnd] = roadSegments[ri];
-
-                bool sharesStart = ((startPoint - rStart).length() < EXCLUSION_EPSILON || 
-                                   (startPoint - rEnd).length() < EXCLUSION_EPSILON);
-                bool sharesEnd = ((endPoint - rStart).length() < EXCLUSION_EPSILON || 
-                                 (endPoint - rEnd).length() < EXCLUSION_EPSILON);
-
+                
+                // Пропускаем дороги, которые начинаются или заканчиваются в этих же точках
+                bool sharesStart = ((startPoint - rStart).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON || 
+                                   (startPoint - rEnd).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON);
+                bool sharesEnd = ((endPoint - rStart).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON || 
+                                 (endPoint - rEnd).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON);
+                
                 if (sharesStart && sharesEnd) continue;
-
+                
                 if (doLinesIntersect(startPoint, endPoint, rStart, rEnd)) {
                     QVector3D intersection = findLineIntersection(startPoint, endPoint, rStart, rEnd);
+                    
+                    // Проверяем, не является ли пересечение конечной точкой существующей дороги
                     bool isEndpointIntersection = 
-                        ((intersection - rStart).length() < EXCLUSION_EPSILON || 
-                         (intersection - rEnd).length() < EXCLUSION_EPSILON) &&
-                        ((intersection - startPoint).length() < EXCLUSION_EPSILON || 
-                         (intersection - endPoint).length() < EXCLUSION_EPSILON);
-
+                        ((intersection - rStart).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON || 
+                         (intersection - rEnd).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) &&
+                        ((intersection - startPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON || 
+                         (intersection - endPoint).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON);
+                    
                     if (!isEndpointIntersection) {
                         intersects = true;
                         break;
@@ -485,45 +545,66 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
                 }
             }
             if (intersects) continue;
-
-            // Успешное добавление
+            
+            // Успешное добавление дороги
             roadSegments.emplace_back(startPoint, endPoint);
             roadCounts[startPointIdx]++;
             roadCounts[endPointIdx]++;
-
-            // Добавляем конечную точку в посещённые
+            
+            // Добавляем конечную точку в посещенные
             bool endPointExists = false;
             for (const auto& vp : visitedPoints) {
-                if ((endPoint - vp).length() < EXCLUSION_EPSILON) {
+                if ((endPoint - vp).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) {
                     endPointExists = true;
                     break;
                 }
             }
+            
             if (!endPointExists) {
                 addVisitedPoint(endPoint);
             }
-
+            
+            successfulRoads++;
             roadAdded = true;
             consecutiveFails = 0;
             break;
         }
-
+        
         if (!roadAdded) {
             consecutiveFails++;
-            if (consecutiveFails >= MAX_RELOCATION_ATTEMPTS / 2 && visitedPoints.size() > boundaryPoints.size() * 2) {
-                if (!visitedPoints.empty()) {
+            if (consecutiveFails >= MAX_RELOCATION_ATTEMPTS / 3 && visitedPoints.size() > boundaryPoints.size()) {
+                // Удаляем последнюю добавленную точку для разблокировки
+                if (visitedPoints.size() > boundaryPoints.size()) {
                     visitedPoints.pop_back();
                     if (!exclusionZones.empty()) exclusionZones.pop_back();
+                    qDebug() << "  УДАЛЕНА ПОСЛЕДНЯЯ ПОСЕЩЕННАЯ ТОЧКА для разблокировки генерации";
                 }
             }
         }
-
-        if (totalAttempts > 10000) break;
+        
+        if (totalAttempts > 5000) {
+            qDebug() << "  ДОСТИГНУТ ЛИМИТ ПОПЫТОК (5000), ПРЕРЫВАНИЕ ЦИКЛА";
+            break;
+        }
     }
 
-    // 5. Собираем ВСЕ дороги в квартале для проверки сторон: границы + внутренние
+    qDebug() << "\n=== РЕЗУЛЬТАТЫ ГЕНЕРАЦИИ ДОРОГ ===";
+    qDebug() << "Успешно создано дорог:" << successfulRoads;
+    qDebug() << "Всего попыток:" << totalAttempts;
+    qDebug() << "Последовательных неудач:" << consecutiveFails;
+    qDebug() << "Посещенных точек:" << visitedPoints.size();
+    qDebug() << "Всего сегментов:" << roadSegments.size();
+
+    if (roadSegments.empty()) {
+        qDebug() << "!!! НЕ СОЗДАНО НИ ОДНОЙ ВНУТРЕННЕЙ ДОРОГИ";
+        return roads;
+    }
+
+    // 6. СОБИРАЕМ ВСЕ ДОРОГИ КВАРТАЛА ДЛЯ ПРОВЕРКИ СТОРОН
+    qDebug() << "\n=== ПОДГОТОВКА К ПРОВЕРКЕ СТОРОН ЗАСТРОЙКИ ===";
     std::vector<std::pair<QVector3D, QVector3D>> allExistingRoads;
-    // Границы квартала
+    
+    // Добавляем границы квартала
     allExistingRoads.emplace_back(QVector3D(blockRect.left(), 0, blockRect.top()), 
                                   QVector3D(blockRect.right(), 0, blockRect.top()));
     allExistingRoads.emplace_back(QVector3D(blockRect.right(), 0, blockRect.top()), 
@@ -532,126 +613,226 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
                                   QVector3D(blockRect.left(), 0, blockRect.bottom()));
     allExistingRoads.emplace_back(QVector3D(blockRect.left(), 0, blockRect.bottom()), 
                                   QVector3D(blockRect.left(), 0, blockRect.top()));
-
+    
+    qDebug() << "Добавлены 4 границы квартала";
+    
     // Добавляем внутренние дороги
     for (const auto& seg : roadSegments) {
         allExistingRoads.push_back(seg);
     }
-
-    qDebug() << "\n--- ОПРЕДЕЛЕНИЕ СТОРОН ЗАСТРОЙКИ ---";
+    
     qDebug() << "Всего дорог для проверки:" << allExistingRoads.size() 
              << "(4 границы +" << roadSegments.size() << " внутренних)";
 
-    // Вспомогательная лямбда: определяет BuildingSide для одной дороги
-    auto determineBuildingSideForRoad = [this, searchDistance, offsetDistance, EXCLUSION_EPSILON]
+    // 7. ЛЯМБДА ДЛЯ ОПРЕДЕЛЕНИЯ СТОРОНЫ ЗАСТРОЙКИ (С УНИФИЦИРОВАННЫМ ENUM)
+    auto determineBuildingSide = [this, searchDistance, offsetDistance, EXCLUSION_EPSILON]
         (const QVector3D& start, const QVector3D& end,
          const std::vector<std::pair<QVector3D, QVector3D>>& otherRoads) -> BuildingSide
     {
         const float roadLength = (end - start).length();
-        if (roadLength < 1e-6f) return BuildingSide::NONE;
-
-        const QVector3D dir = (end - start).normalized();
-        bool leftHasRoad = false;
-        bool rightHasRoad = false;
-
-        // Адаптивный отступ для коротких дорог
-        float effectiveOffset = offsetDistance;
-        if (roadLength < 2 * offsetDistance) {
-            effectiveOffset = std::max(0.0f, roadLength * 0.3f);
+        
+        // Проверка на вырожденную дорогу
+        if (roadLength < 1e-3f) {
+            qDebug() << "  ВЫРОЖДЕННАЯ ДОРОГА (длина = 0), сторона: NONE";
+            return BuildingSide::NONE;
         }
 
-        const QVector3D midStart = start + dir * effectiveOffset;
-        const QVector3D midEnd = end - dir * effectiveOffset;
-        const float midLength = (midEnd - midStart).length();
+        // Нормализованное направление дороги (от start к end)
+        QVector3D dir = (end - start).normalized();
+        
+        // Проверка корректности направления
+        if (dir.length() < 1e-6f) {
+            qDebug() << "  НЕВОЗМОЖНО ОПРЕДЕЛИТЬ НАПРАВЛЕНИЕ ДОРОГИ, сторона: NONE";
+            return BuildingSide::NONE;
+        }
 
-        if (midLength > 1e-6f) {
-            // Перпендикуляры (в 2D: dir = (dx, dz) → perp = (-dz, dx))
-            QVector3D perpLeft(-dir.z(), 0, dir.x());
-            const float perpLen = perpLeft.length();
-            if (perpLen < 1e-6f) return BuildingSide::NONE;
-            perpLeft.normalize();
-            const QVector3D perpRight = -perpLeft;
+        // Перпендикулярные векторы (лево/право относительно направления движения)
+        QVector3D perpLeft(-dir.z(), 0, dir.x()); // Поворот на 90 градусов против часовой стрелки
+        float perpLength = perpLeft.length();
+        
+        if (perpLength < 1e-6f) {
+            qDebug() << "  НЕВОЗМОЖНО ОПРЕДЕЛИТЬ ПЕРПЕНДИКУЛЯР, сторона: NONE";
+            return BuildingSide::NONE;
+        }
+        
+        perpLeft.normalize();
+        QVector3D perpRight = -perpLeft; // Поворот на 90 градусов по часовой стрелке
 
-            // Выборка: равномерные точки (минимум 1, максимум 5)
-            const int numSamples = std::max(1, std::min(5, static_cast<int>(midLength / GRID_STEP) + 1));
-            for (int i = 0; i < numSamples; ++i) {
-                const float t = (numSamples == 1) ? 0.5f : static_cast<float>(i) / (numSamples - 1);
-                const QVector3D P = midStart + (midEnd - midStart) * t;
+        // Адаптивный отступ от концов дороги
+        float effectiveOffset = offsetDistance;
+        if (roadLength < 2 * offsetDistance) {
+            effectiveOffset = roadLength * 0.2f; // 20% от длины для коротких дорог
+            qDebug() << "  Короткая дорога (длина:" << roadLength 
+                     << "), уменьшаем отступ до:" << effectiveOffset;
+        }
+        
+        // Вычисление среднего сегмента для проверки
+        QVector3D middleStart = start + dir * effectiveOffset;
+        QVector3D middleEnd = end - dir * effectiveOffset;
+        float middleLength = (middleEnd - middleStart).length();
+        
+        // Если средний сегмент слишком короткий, используем центральную точку
+        if (middleLength < 1e-3f) {
+            middleStart = (start + end) * 0.5f;
+            middleEnd = middleStart;
+            middleLength = 0.0f;
+        }
 
+        bool leftHasRoad = false;
+        bool rightHasRoad = false;
+        
+        // Оптимизация: прерываем проверку, если обе стороны уже заняты
+        bool bothSidesBlocked = false;
+        
+        if (middleLength > 1e-3f) {
+            // Определяем количество точек выборки (от 1 до 5)
+            int numSamples = 1;
+            if (middleLength > 2 * GRID_STEP) numSamples = 2;
+            if (middleLength > 4 * GRID_STEP) numSamples = 3;
+            if (middleLength > 6 * GRID_STEP) numSamples = 4;
+            if (middleLength > 8 * GRID_STEP) numSamples = 5;
+            
+            qDebug() << "  Проверка среднего сегмента (длина:" << middleLength 
+                     << "), точек выборки:" << numSamples;
+            
+            for (int i = 0; i < numSamples && !bothSidesBlocked; ++i) {
+                float t = (numSamples > 1) ? static_cast<float>(i) / (numSamples - 1) : 0.5f;
+                QVector3D P = middleStart + (middleEnd - middleStart) * t;
+                
                 // Проверка левой стороны
                 if (!leftHasRoad) {
-                    const QVector3D leftRayEnd = P + perpLeft * searchDistance;
+                    QVector3D leftRayEnd = P + perpLeft * searchDistance;
+                    
                     for (const auto& seg : otherRoads) {
                         if (this->doLinesIntersect(P, leftRayEnd, seg.first, seg.second)) {
                             leftHasRoad = true;
+                            qDebug() << "    НАЙДЕНА дорога СЛЕВА в точке t=" << t;
                             break;
                         }
                     }
                 }
-
+                
                 // Проверка правой стороны
                 if (!rightHasRoad) {
-                    const QVector3D rightRayEnd = P + perpRight * searchDistance;
+                    QVector3D rightRayEnd = P + perpRight * searchDistance;
+                    
                     for (const auto& seg : otherRoads) {
                         if (this->doLinesIntersect(P, rightRayEnd, seg.first, seg.second)) {
                             rightHasRoad = true;
+                            qDebug() << "    НАЙДЕНА дорога СПРАВА в точке t=" << t;
                             break;
                         }
                     }
                 }
-
-                if (leftHasRoad && rightHasRoad) break;
+                
+                bothSidesBlocked = leftHasRoad && rightHasRoad;
+            }
+        } else {
+            // Для очень коротких дорог проверяем только центральную точку
+            QVector3D P = middleStart;
+            
+            // Проверка левой стороны
+            QVector3D leftRayEnd = P + perpLeft * searchDistance;
+            for (const auto& seg : otherRoads) {
+                if (this->doLinesIntersect(P, leftRayEnd, seg.first, seg.second)) {
+                    leftHasRoad = true;
+                    qDebug() << "    НАЙДЕНА дорога СЛЕВА в центральной точке";
+                    break;
+                }
+            }
+            
+            // Проверка правой стороны
+            QVector3D rightRayEnd = P + perpRight * searchDistance;
+            for (const auto& seg : otherRoads) {
+                if (this->doLinesIntersect(P, rightRayEnd, seg.first, seg.second)) {
+                    rightHasRoad = true;
+                    qDebug() << "    НАЙДЕНА дорога СПРАВА в центральной точке";
+                    break;
+                }
             }
         }
 
-        if (!leftHasRoad && !rightHasRoad) return BuildingSide::BOTH;
-        if (!leftHasRoad) return BuildingSide::LEFT;
-        if (!rightHasRoad) return BuildingSide::RIGHT;
-        return BuildingSide::NONE;
+        // ОПРЕДЕЛЕНИЕ СТОРОНЫ СОГЛАСНО УНИФИЦИРОВАННОМУ ENUM:
+        BuildingSide side;
+        if (!leftHasRoad && !rightHasRoad) {
+            side = BuildingSide::BOTH;
+            qDebug() << "  Результат: НЕТ ДОРОГ СЛЕВА И СПРАВА →" << buildingSideToString(side);
+        } else if (!leftHasRoad) {
+            side = BuildingSide::LEFT;
+            qDebug() << "  Результат: НЕТ ДОРОГИ СЛЕВА →" << buildingSideToString(side);
+        } else if (!rightHasRoad) {
+            side = BuildingSide::RIGHT;
+            qDebug() << "  Результат: НЕТ ДОРОГИ СПРАВА →" << buildingSideToString(side);
+        } else {
+            side = BuildingSide::NONE;
+            qDebug() << "  Результат: ДОРОГИ С ОБЕИХ СТОРОН →" << buildingSideToString(side);
+        }
+        
+        return side;
     };
 
-    // 6. Создание объектов дорог с установкой стороны застройки
+    // 8. СОЗДАНИЕ ОБЪЕКТОВ ДОРОГ С ОПРЕДЕЛЕНИЕМ СТОРОНЫ ЗАСТРОЙКИ
+    qDebug() << "\n=== СОЗДАНИЕ ОБЪЕКТОВ ДОРОГ ===";
     for (size_t i = 0; i < roadSegments.size(); ++i) {
         const auto& [start, end] = roadSegments[i];
+        qDebug() << "\nОбработка дороги #" << i 
+                 << " от (" << start.x() << "," << start.z() << ") до (" << end.x() << "," << end.z() << ")";
+        qDebug() << "  Длина дороги:" << (end - start).length();
 
-        // Формируем список дорог БЕЗ текущей
+        // Формируем список дорог для проверки (без текущей)
         std::vector<std::pair<QVector3D, QVector3D>> otherRoads;
         for (const auto& seg : allExistingRoads) {
-            // Точное сравнение начала и конца (с учётом направления)
-            bool isCurrent =
-                ((start - seg.first).length() < EXCLUSION_EPSILON && (end - seg.second).length() < EXCLUSION_EPSILON) ||
-                ((start - seg.second).length() < EXCLUSION_EPSILON && (end - seg.first).length() < EXCLUSION_EPSILON);
+            bool isCurrent = false;
+            
+            // Точное сравнение с учетом обоих направлений
+            if (((seg.first - start).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON && 
+                 (seg.second - end).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON) ||
+                ((seg.first - end).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON && 
+                 (seg.second - start).lengthSquared() < EXCLUSION_EPSILON * EXCLUSION_EPSILON)) {
+                isCurrent = true;
+            }
+            
             if (!isCurrent) {
                 otherRoads.push_back(seg);
             }
         }
+        
+        qDebug() << "  Дорог для проверки сторон:" << otherRoads.size() 
+                 << "(всего:" << allExistingRoads.size() << ", исключена текущая)";
 
-        BuildingSide side = determineBuildingSideForRoad(start, end, otherRoads);
+        // Определяем сторону для зданий
+        BuildingSide side = determineBuildingSide(start, end, otherRoads);
+
+        // Создаём объект дороги
         auto road = std::make_unique<ResidentialRoad>(start, end, 6.0f);
         road->setBuildingSideFromEnum(side);
         roads.push_back(std::move(road));
 
-        // Отладка
+        // Логирование
         int startIdx = findPointIndex(start, allPoints);
         int endIdx = findPointIndex(end, allPoints);
-        int sc = (startIdx != -1) ? roadCounts[startIdx] : 0;
-        int ec = (endIdx != -1) ? roadCounts[endIdx] : 0;
-        qDebug() << "Дорога #" << i << " (сторона:" << static_cast<int>(side) << "):"
-                 << "от (" << start.x() << "," << start.z() << ")[" << sc << "] до ("
-                 << end.x() << "," << end.z() << ")[" << ec << "]";
+        int startCount = (startIdx != -1) ? roadCounts[startIdx] : 0;
+        int endCount = (endIdx != -1) ? roadCounts[endIdx] : 0;
+        
+        qDebug() << "Дорога #" << i << ":" 
+                 << "от (" << start.x() << "," << start.z() << ")[" << startCount << "] до ("
+                 << end.x() << "," << end.z() << ")[" << endCount << "]"
+                 << " длина:" << (end - start).length()
+                 << " сторона:" << buildingSideToString(side);
     }
-
+    
     qDebug() << "\n===== ЗАВЕРШЕНИЕ ГЕНЕРАЦИИ =====";
     qDebug() << "Итоговые результаты:";
     qDebug() << "  Всего дорог создано:" << roads.size() << "/" << MAX_ROADS_PER_BLOCK;
     qDebug() << "  Посещенных точек:" << visitedPoints.size();
     qDebug() << "  Граничных точек:" << boundaryPoints.size();
     qDebug() << "  Уникальных точек:" << allPoints.size();
-    qDebug() << "  Попыток:" << totalAttempts;
+    qDebug() << "  Всего попыток:" << totalAttempts;
     qDebug() << "  Последовательных неудач:" << consecutiveFails;
-
+    
     return roads;
 }
+
 
 // Helper function to check if two lines intersect
 bool SubdivisionRoadGenerationStrategy::doLinesIntersect(const QVector3D& line1Start, const QVector3D& line1End,

@@ -40,7 +40,7 @@ void Renderer::EnsureBuffers(const Scene& scene) {
          // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
         for (auto &light: scene.lights)
         {
-            shadowZBuf.push_back(light->CreateShadowZBuffer(5000, 5000, ortho_proj->Clone()));
+            shadowZBuf.push_back(light->CreateShadowZBuffer(46340, 46340, ortho_proj->Clone())); // 46340 максимально
 
             ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
             RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
@@ -60,16 +60,14 @@ void Renderer::Render(const Scene &scene, QImage &image)
 
     EnsureBuffers(scene);
 
-    // ✅ Создаём команду для основного рендера
     ZBufferRasterCommand zBufCmd(m_zBuffer.get());
     ColorWriteCommand colorBufCmd(m_colorBuffer.get());
     ShadeWriteCommand shadeBuf(m_shadeBuffer.get(), &scene, shadowZBuf);
     ComplexWriteCommand complexCmd(zBufCmd, colorBufCmd, shadeBuf);
 
-    // ✅ Передаём команду в шаблонный RenderScene
     QVector3D cameraPos = scene.camera->GetPosition();
     RenderScene(scene, complexCmd, cameraPos);
-
+    m_shadeBuffer->Smooth(2);
     WriteToImage(image);
 }
 
@@ -98,9 +96,9 @@ void Renderer::WriteToImage(QImage& image) {
             float shade = m_shadeBuffer->shadeData[idx];
             QColor c = m_colorBuffer->colorData[idx];
             c = QColor(
-                qBound(0, (int)(c.red() * shade * 1.24), 255),
-                qBound(0, (int)(c.green() * shade * 1.14), 255),
-                qBound(0, (int)(c.blue() * shade * 1.1), 255)
+                qBound(0, (int)(c.red() * shade * 0.6), 255),
+                qBound(0, (int)(c.green() * shade * 0.6), 255),
+                qBound(0, (int)(c.blue() * shade * 0.9), 255)
                 );
             image.setPixel(x, y, qRgb(c.red(), c.green(), c.blue()));
         }

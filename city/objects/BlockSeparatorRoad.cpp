@@ -60,8 +60,8 @@ GraphicObject BlockSeparatorRoad::getRoadMesh() const {
     road.AddPoint(QVector3D(p2.x(), roadHeight, p2.z()));
     road.AddPoint(QVector3D(p3.x(), roadHeight, p3.z()));
 
-    road.AddFace(0, 1, 2, QColor(180, 80, 80)); // темно-серый асфальт для разделительных дорог
-    road.AddFace(0, 2, 3, QColor(180, 80, 80));
+    road.AddFace(0, 1, 2, QColor(80, 80, 80)); // темно-серый асфальт для разделительных дорог
+    road.AddFace(0, 2, 3, QColor(80, 80, 80));
     return road;
 }
 
@@ -71,14 +71,6 @@ std::vector<GraphicObject> BlockSeparatorRoad::getBuildingMeshes() const {
 
 void BlockSeparatorRoad::addBuildingMesh(GraphicObject&& building) {
     // Игнорируем, так как не размещаем здания
-}
-
-void BlockSeparatorRoad::setBuildingSide(int side) {
-    // Не используется
-}
-
-int BlockSeparatorRoad::getBuildingSide() const {
-    return 0; // Всегда 0, так как не используется
 }
 
 void BlockSeparatorRoad::setBuildingSideFromEnum(BuildingSide side) {
@@ -92,7 +84,7 @@ BuildingSide BlockSeparatorRoad::getBuildingSideAsEnum() const {
 std::unique_ptr<AbstractRoad> BlockSeparatorRoad::clone() const {
     auto newRoad = std::make_unique<BlockSeparatorRoad>(m_start, m_end, m_width);
     // Since BlockSeparatorRoad doesn't place buildings, we don't need to copy building side info
-    newRoad->setBuildingSide(0); // Set to 0 (NONE) as BlockSeparatorRoad doesn't place buildings
+    newRoad->setBuildingSideFromEnum(City::BuildingSide::NONE); // Set to 0 (NONE) as BlockSeparatorRoad doesn't place buildings
     return newRoad;
 }
 

@@ -30,7 +30,10 @@ set(SOURCES
     city/strategies/SimpleRoadGenerationStrategy.cpp
     city/objects/ResidentialRoad.cpp
     city/objects/BlockSeparatorRoad.cpp
+    city/objects/BuildingModel.cpp
     city/strategies/SimpleBuildingSelector.cpp
+    city/loaders/ModelLoader.cpp
+    city/strategies/SmartBuildingSelector.cpp
 )
 
 set(HEADERS
@@ -58,6 +61,10 @@ set(HEADERS
     city/objects/ResidentialRoad.h
     city/objects/BlockSeparatorRoad.h
     city/strategies/SimpleBuildingSelector.h
+    city/loaders/ModelLoader.h
+    city/strategies/SmartBuildingSelector.h
+    city/objects/BuildingModel.h
+    city/objects/RoadEnums.h
 )
 
 # Добавляем исполняемый файл

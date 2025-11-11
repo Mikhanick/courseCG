@@ -34,12 +34,9 @@ public:
     // Добавление зданий
     void addBuildingMesh(GraphicObject&& building) override;
     
-    // Направление размещения зданий (-1 - левая сторона, 0 - нет зданий, 1 - правая сторона, 2 - обе стороны)
-    void setBuildingSide(int side) override;
-    int getBuildingSide() const override;
+
+    void setBuildingSideFromEnum(BuildingSide side);
     
-    // Направление размещения зданий с использованием перечисления
-    void setBuildingSideFromEnum(BuildingSide side) override;
     BuildingSide getBuildingSideAsEnum() const override;
     
     // Prototype pattern - clone method
