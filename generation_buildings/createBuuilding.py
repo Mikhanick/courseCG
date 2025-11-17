@@ -1,6 +1,7 @@
 # createBuilding.py
 import json
 import numpy as np
+import random
 from typing import List, Tuple, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -415,6 +416,7 @@ class BuildingModel:
         self.roof = BuildingSection()
 
         self.panels_per_row = panels_per_row
+        self.panels_per_row_depth = panels_per_row_depth
         self.panel_width = panel_width
         self.panel_height = panel_height
         self.ground_floor_height = ground_floor_height
@@ -527,6 +529,73 @@ class BuildingModel:
         }
         return json.dumps(model, indent=2)
 
+    def save_to_file(self, filename: str):
+        """
+        Сохраняет модель здания в JSON файл
+        :param filename: Имя файла для сохранения
+        """
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(self.to_json())
+
+    @staticmethod
+    def get_window_color():
+        """
+        Возвращает случайный темный цвет окна, с небольшим шансом светло-желтый (как будто в окне горит свет)
+        """
+        # 10% шанс получить светло-желтое окно (освещенное)
+        if random.random() < 0.1:
+            return "#FFD700"  # Светло-желтый цвет (освещенное окно)
+        else:
+            # Темные цвета для неосвещенных окон
+            dark_colors = [
+                "#000033",  # Темно-синий
+                "#001F00",  # Темно-зеленый
+                "#1A0000",  # Темно-красный
+                "#140014",  # Темно-фиолетовый
+                "#000000",  # Черный
+                "#0F0F0F",  # Очень темно-серый
+                "#001414",  # Темно-бирюзовый
+            ]
+            return random.choice(dark_colors)
+
+
+def create_panel_segment(points: List[Tuple[float, float]], color: str, cutouts: Optional[List[List[Tuple[float, float]]]] = None):
+    """
+    Создает панельный сегмент с указанными точками, цветом и необязательными вырезами.
+
+    Args:
+        points: список точек панели в относительных координатах [(x1,y1), (x2,y2), ...]
+        color: цвет панели в формате #RRGGBB
+        cutouts: список вырезов, где каждый вырез - это список точек [(x1,y1), (x2,y2), ...]
+
+    Returns:
+        GeometrySegment: готовый сегмент геометрии
+    """
+    if cutouts is None:
+        cutouts = []
+
+    segment = GeometrySegment()
+
+    if cutouts:
+        # Если есть вырезы, создаем рамки с вырезами
+        for cutout in cutouts:
+            segment.add_child(
+                RectangleWithCutout(
+                    cutout_points=cutout,
+                    color=color
+                )
+            )
+    else:
+        # Если нет вырезов, создаем сплошную панель
+        segment.add_child(
+            SimplePolygon(
+                points=points,
+                color=color
+            )
+        )
+
+    return segment
+
 
 def generate_soviet_apartment() -> str:
     model = BuildingModel(
@@ -564,7 +633,7 @@ def generate_soviet_apartment() -> str:
     standard_panel.add_child(
         SimplePolygon(
             points=standard_window_points,
-            color="#254843",  # цвет окна
+            color=BuildingModel.get_window_color(),  # случайный цвет окна
         )
     )
 
@@ -594,7 +663,7 @@ def generate_soviet_apartment() -> str:
                 color="#A4A4A4",  # темнее для боковых стен
             )
         )
-        panel.add_child(SimplePolygon(points=side_window_points, color="#254843"))
+        panel.add_child(SimplePolygon(points=side_window_points, color=BuildingModel.get_window_color()))
         left_panels.append(panel)
 
     # === ПЕРВЫЙ ЭТАЖ ===
