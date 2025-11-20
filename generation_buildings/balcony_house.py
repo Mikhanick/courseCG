@@ -100,19 +100,35 @@ def create_balcony_panel(panel_width, panel_height, color_theme, window_scale=1.
     ]
 
     # Добавляем все элементы балкона
+    # Нижняя часть (пол балкона) - добавляем с двумя нормалями для двустороннего отображения
     balcony_panel.add_child(
         SimplePolygon(points=balcony_floor, color="#8B7D6B")  # Темно-бежевый для пола
-    )    
-    balcony_panel.add_child(
-        SimplePolygon(points=balcony_floor, color="#8B7D6B", invert=True)  # Темно-бежевый для пола
     )
+    balcony_panel.add_child(
+        SimplePolygon(points=balcony_floor, color="#8B7D6B", invert=True)  # Обратная сторона пола
+    )
+
+    # Передняя вертикальная стена (ограждение)
     balcony_panel.add_child(
         SimplePolygon(points=front_railing, color="#696969")  # Серый для ограждений
     )
-    balcony_panel.add_child(SimplePolygon(points=left_railing, color="#696969", invert=True))
-    balcony_panel.add_child(SimplePolygon(points=right_railing, color="#696969"))
-    balcony_panel.add_child(SimplePolygon(points=left_railing, color="#696969", invert=True))
-    balcony_panel.add_child(SimplePolygon(points=right_railing, color="#696969"))
+
+    # Боковые стены с двумя нормалями для корректного отображения с обеих сторон
+    # Левая боковая стена - 2 полигона с разными направлениями нормалей
+    balcony_panel.add_child(
+        SimplePolygon(points=left_railing, color="#696969", invert=False)
+    )  # Внешняя сторона (нормаль внутрь балкона)
+    balcony_panel.add_child(
+        SimplePolygon(points=left_railing, color="#696969", invert=True)
+    )  # Внутренняя сторона (нормаль наружу балкона)
+
+    # Правая боковая стена - 2 полигона с разными направлениями нормалей
+    balcony_panel.add_child(
+        SimplePolygon(points=right_railing, color="#696969", invert=False)
+    )  # Внешняя сторона (нормаль внутрь балкона)
+    balcony_panel.add_child(
+        SimplePolygon(points=right_railing, color="#696969", invert=True)
+    )  # Внутренняя сторона (нормаль наружу балкона)
     # balcony_panel.add_child(
     #     SimplePolygon(points=top_railing, color="#555555")  # Темнее для верха
     # )
@@ -343,8 +359,8 @@ def create_side_panel(panel_width, panel_height, color_theme, window_scale=1.0):
     return side_panel
 
 
-def create_beige_building(name, color_theme, panel_count=5):
-    """Создает здание в заданном цветовом решении с указанной длиной"""
+def create_beige_building(name, color_theme, panel_count=5, depth_panel_count=3):
+    """Создает здание в заданном цветовом решении с указанной длиной и глубиной"""
     # Основные параметры здания
     panel_width_front = 6.0  # Ширина панели фасада
     panel_width_side = 4.0  # Ширина боковой панели
@@ -357,10 +373,10 @@ def create_beige_building(name, color_theme, panel_count=5):
     # Инициализация здания
     building = Building(
         name=name,
-        description=f"{floor_count}-этажный жилой дом с {panel_count} панелями и полноформатными балконами ({name})",
+        description=f"{floor_count}-этажный жилой дом с {panel_count} панелями в длину и {depth_panel_count} панелями в глубину с полноформатными балконами ({name})",
         floor_count=floor_count,
         width=panel_width_front * panel_count,  # Ширина зависит от количества панелей
-        depth=panel_width_side * 3,  # Глубина остается постоянной (3 боковые панели)
+        depth=panel_width_side * depth_panel_count,  # Глубина теперь переменная
         ground_floor_height=panel_height,
         typical_floor_height=panel_height,
         roof_type="flat",
@@ -457,11 +473,11 @@ def create_beige_building(name, color_theme, panel_count=5):
     )
 
     # Боковые стены
-    left_panels_ground = [side_window] * 3
-    left_panels_typical = [side_window] * 3
+    left_panels_ground = [side_window] * depth_panel_count
+    left_panels_typical = [side_window] * depth_panel_count
 
-    right_panels_ground = [side_window] * 3
-    right_panels_typical = [side_window] * 3
+    right_panels_ground = [side_window] * depth_panel_count
+    right_panels_typical = [side_window] * depth_panel_count
 
     # Левая стена
     building.add_wall(
@@ -522,6 +538,11 @@ coffee_beige_theme = {
     "window": Building.get_window_color
 }
 
+def create_5x4_beige_building(name, color_theme):
+    """Создает здание с 5 панелями в длину и 4 панелями в глубину"""
+    return create_beige_building(name, color_theme, panel_count=5, depth_panel_count=4)
+
+
 # 🏗️ Создание зданий с разным количеством панелей
 
 print("🏗️ Начинаем создание зданий с 5 и 7 панелями...")
@@ -553,5 +574,17 @@ coffee_beige_7p = create_beige_building(
     "coffee_beige_7p", coffee_beige_theme, panel_count=7
 )
 print("✅ Бежевый 'кофе с молоком' дом (7 панелей) успешно создан!")
+
+# 🏠 5x4 панельные здания
+print("\n🏠 Создание 5x4 панельных зданий:")
+
+light_sand_5x4 = create_5x4_beige_building("light_sand_5x4", light_sand_theme)
+print("✅ Светлый песочный дом (5x4 панели) успешно создан!")
+
+warm_cream_5x4 = create_5x4_beige_building("warm_cream_5x4", warm_cream_theme)
+print("✅ Теплый кремовый дом (5x4 панели) успешно создан!")
+
+coffee_beige_5x4 = create_5x4_beige_building("coffee_beige_5x4", coffee_beige_theme)
+print("✅ Бежевый 'кофе с молоком' дом (5x4 панели) успешно создан!")
 
 print("\n🎉 Все здания успешно созданы и сохранены в папку buildings/")

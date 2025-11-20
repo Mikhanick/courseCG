@@ -23,13 +23,13 @@ float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
-    const float edgeBuffer = 5.0f;    // Отступ от концов дороги
-    const float sideMargin = 3.0f;    // Отступ от края дороги по ширине
-    const float plotDepth = 35.0f;    // Фиксированная глубина всех участков
+    const float edgeBuffer = 10.0f;    // Отступ от концов дороги
+    const float sideMargin = 5.0f;    // Отступ от края дороги по ширине
+    const float plotDepth = 40.0f;    // Фиксированная глубина всех участков
     
     // Гибкие параметры ширины участков (вдоль дороги)
-    const float minPlotWidth = 17.0f; // Минимальная ширина (для узких таунхаусов)
-    const float maxPlotWidth = 60.0f; // Максимальная ширина (для длинных домов/особняков)
+    const float minPlotWidth = 25.0f; // Минимальная ширина (для узких таунхаусов)
+    const float maxPlotWidth = 70.0f; // Максимальная ширина (для длинных домов/особняков)
     
     float roadLength = getLength();
     float buildableStart = edgeBuffer;
@@ -128,7 +128,7 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
     // 4. Финальная позиция с центрированием по высоте
     QVector3D position = basePosition + normal * perpendicularOffset;
     position.setY(buildingSize.y() / 2.0f); // Центр по высоте для правильного вращения
-    
+
     return position;
 }
 

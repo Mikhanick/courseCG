@@ -14,8 +14,8 @@ struct FloorSection {
 class BuildingModel {
 public:
     QString name;
-    float minWidth = 10.0f, maxWidth = 30.0f;
-    float minDepth = 10.0f, maxDepth = 40.0f;
+    float minWidth = 25.0f, maxWidth = 40.0f;  // Increased minimum from 10 to 25, max from 30 to 40
+    float minDepth = 25.0f, maxDepth = 50.0f;  // Increased minimum from 10 to 25, max from 40 to 50
     int floorCount = 3;
     float textureScale = 1.0f;
     bool fixedScale = false;

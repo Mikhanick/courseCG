@@ -904,5 +904,10 @@ class Building:
 
     def save_to_file(self, filename: str):
         """Сохраняет здание в файл"""
+        import os
+        directory = os.path.dirname(filename)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+
         with open(filename, "w", encoding="utf-8") as f:
             f.write(self.to_json())

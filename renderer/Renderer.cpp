@@ -40,7 +40,7 @@ void Renderer::EnsureBuffers(const Scene& scene) {
          // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
         for (auto &light: scene.lights)
         {
-            shadowZBuf.push_back(light->CreateShadowZBuffer(10000, 10000, ortho_proj->Clone())); // 46340 максимально
+            shadowZBuf.push_back(light->CreateShadowZBuffer(46340, 46340, ortho_proj->Clone())); // 46340 максимально
 
             ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
             RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
@@ -96,9 +96,9 @@ void Renderer::WriteToImage(QImage& image) {
             float shade = m_shadeBuffer->shadeData[idx];
             QColor c = m_colorBuffer->colorData[idx];
             c = QColor(
-                qBound(0, (int)(c.red() * shade * 0.6), 255),
-                qBound(0, (int)(c.green() * shade * 0.6), 255),
-                qBound(0, (int)(c.blue() * shade * 0.9), 255)
+                qBound(0, (int)(c.red() * shade * 1.2), 255),
+                qBound(0, (int)(c.green() * shade * 1.1), 255),
+                qBound(0, (int)(c.blue() * shade * 1.f), 255)
                 );
             image.setPixel(x, y, qRgb(c.red(), c.green(), c.blue()));
         }
