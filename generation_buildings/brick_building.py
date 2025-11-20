@@ -1,4 +1,4 @@
-from createBuuilding import *
+from generation_buildings.createBuilding import *
 def generate_brick_7_story():
     model = BuildingModel(
         name="brick_7_story",

@@ -36,18 +36,23 @@ void CityMap::placeBuildingsOnRoads() {
         for (auto& [area, plotCount] : plots) {
             GraphicObject building = m_buildingSelector->select(area);
 
-            // Определяем размер здания (для позиционирования)
-            QVector3D size(0, 0, 0);
-            if (!building.points.empty()) {
-                for (const auto& p : building.points) {
-                    size.setX(qMax(size.x(), p.x()));
-                    size.setY(qMax(size.y(), p.y()));
-                    size.setZ(qMax(size.z(), p.z()));
-                }
-            }
+            // Using the new getDimensions method to get the actual building dimensions
+            QVector2D dimensions = building.getDimensions();
+            QVector3D size(dimensions.x(), 0, dimensions.y()); // x = length, y = height (not used for positioning), z = depth
 
             QVector3D globalPos = road->calculateGlobalPosition(area, size);
             QVector3D norm = road->calculateNormal();
+
+            // To center the building in its plot, we need to offset the position to account for
+            // the building's dimensions since placeAt uses the building's local (0,0,0) as reference
+            // The building is initially positioned with (0,0,0) as the corner, so we need to move it
+            // to center it within its allocated plot
+            QVector3D dir = (road->getEnd() - road->getStart()).normalized();
+            QVector3D perp = QVector3D::crossProduct(QVector3D(0, 1, 0), dir).normalized(); // perpendicular to road direction
+
+            // Adjust global position to center the building in its plot
+            // Move by half of each dimension in the appropriate directions
+            globalPos = globalPos - (norm * size.z() / 2.0f) - (dir * size.x() / 2.0f);
 
             building.placeAt(globalPos, norm);
             building.ComputeFaceNormals();

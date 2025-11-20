@@ -61,40 +61,67 @@ float SmartBuildingSelector::getSectionHeight(const FloorSection& section) const
 
 BuildingModel SmartBuildingSelector::chooseBestModel(const QSizeF& availableSize) const {
     std::vector<BuildingModel> suitableModels;
-    
+
     // Сначала ищем модели с фиксированным масштабом, которые помещаются
     for (const auto& model : availableModels) {
         if (model.fixedScale) {
             QSizeF baseSize = getBaseDimensions(model.groundFloor);
-            if (baseSize.width() <= availableSize.width() && 
+            if (baseSize.width() <= availableSize.width() &&
                 baseSize.height() <= availableSize.height()) {
                 suitableModels.push_back(model);
             }
         }
     }
-    
+
     // Если нет подходящих фиксированных моделей - ищем обычные
     if (suitableModels.empty()) {
         for (const auto& model : availableModels) {
-            if (!model.fixedScale && 
-                availableSize.width() >= model.minWidth && 
+            if (!model.fixedScale &&
+                availableSize.width() >= model.minWidth &&
                 availableSize.width() <= model.maxWidth &&
-                availableSize.height() >= model.minDepth && 
+                availableSize.height() >= model.minDepth &&
                 availableSize.height() <= model.maxDepth) {
                 suitableModels.push_back(model);
             }
         }
     }
-    
+
     // Если все еще нет подходящих - берем все модели
     if (suitableModels.empty()) {
-        suitableModels = availableModels;
-        qDebug() << "WARNING: No perfectly fitting models. Using all available models.";
+        // suitableModels = availableModels;
+        qDebug() << "WARNING: No perfectly fitting models.";
     }
-    
-    // Случайный выбор из подходящих
-    std::uniform_int_distribution<size_t> dist(0, suitableModels.size() - 1);
-    return suitableModels[dist(randomEngine)];
+
+    if (suitableModels.empty()) {
+        // Если нет подходящих моделей, возвращаем первую доступную
+        if (!availableModels.empty()) {
+            std::uniform_int_distribution<size_t> dist(0, availableModels.size() - 1);
+            return availableModels[dist(randomEngine)];
+        }
+        throw std::runtime_error("No building models available");
+    }
+
+    // Находим модели с максимальной площадью (или максимальной длиной/шириной)
+    std::vector<BuildingModel> largestModels;
+    float maxArea = -1.0f;
+
+    for (const auto& model : suitableModels) {
+        QSizeF baseSize = getBaseDimensions(model.groundFloor);
+        float area = baseSize.width() * baseSize.height();
+
+        if (area > maxArea) {
+            maxArea = area;
+            largestModels.clear();
+            largestModels.push_back(model);
+        } else if (qFuzzyCompare(area, maxArea)) {
+            // Добавляем модели с одинаковой площадью для случайного выбора
+            largestModels.push_back(model);
+        }
+    }
+
+    // Случайный выбор из моделей с максимальной площадью
+    std::uniform_int_distribution<size_t> dist(0, largestModels.size() - 1);
+    return largestModels[dist(randomEngine)];
 }GraphicObject SmartBuildingSelector::buildFromModel(
     const BuildingModel& model, 
     const QSizeF& availableSize) const 

@@ -27,6 +27,30 @@ void GraphicObject::ComputeFaceNormals() {
         face.normal = QVector3D::crossProduct(edge1, edge2).normalized();
     }
 }
+
+QVector2D GraphicObject::getDimensions() const {
+    if (points.empty()) {
+        return QVector2D(0.0f, 0.0f);
+    }
+
+    float minX = points[0].x();
+    float maxX = points[0].x();
+    float minZ = points[0].z();
+    float maxZ = points[0].z();
+
+    for (const auto& point : points) {
+        minX = qMin(minX, point.x());
+        maxX = qMax(maxX, point.x());
+        minZ = qMin(minZ, point.z());
+        maxZ = qMax(maxZ, point.z());
+    }
+
+    float length = maxX - minX;  // размер по оси X (ширина)
+    float depth = maxZ - minZ;   // размер по оси Z (глубина/фасад)
+
+    return QVector2D(length, depth);
+}
+
 void GraphicObject::placeAt(const QVector3D& coord, const QVector3D& norm) {
     // Нормализуем горизонтальную нормаль (Y = 0)
     QVector3D horizontalNorm(norm.x(), 0.0f, norm.z());

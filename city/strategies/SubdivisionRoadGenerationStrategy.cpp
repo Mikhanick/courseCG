@@ -25,7 +25,7 @@ constexpr int MAX_ROAD_LENGTH_STEPS = 18;   // Maximum road length in grid steps
 constexpr int MAX_ROADS_PER_BLOCK = 40;    // Maximum roads per block (W)
 constexpr int MAX_RELOCATION_ATTEMPTS = 120; // Maximum relocation attempts for intersections (Q)
 constexpr int EXCLUSION_RADIUS = 7; // Maximum relocation attempts for intersections (Q)
-constexpr float GRID_STEP = 12.f;         // Grid step size
+constexpr float GRID_STEP = 13.f;         // Grid step size
 constexpr float BOUNDARY_BUFFER = 40; // Buffer from block boundary
 constexpr int MAX_ROADS_PER_POINT = 5;     // Максимальное количество дорог в одной точке
 
@@ -165,7 +165,7 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
 
     // Параметры проверки сторон (в блоках сетки) - настраиваемые константы
     constexpr float SEARCH_DISTANCE_PERPENDICULAR_BLOCKS = 2.5f; // N
-    constexpr float OFFSET_FROM_ENDS_BLOCKS = 0.5f;              // M
+    constexpr float OFFSET_FROM_ENDS_BLOCKS = 1.f;              // M
     const float searchDistance = SEARCH_DISTANCE_PERPENDICULAR_BLOCKS * GRID_STEP;
     const float offsetDistance = OFFSET_FROM_ENDS_BLOCKS * GRID_STEP;
 

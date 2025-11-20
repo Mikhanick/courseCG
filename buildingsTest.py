@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import json
-from generation_buildings.createBuuilding import (
+from generation_buildings.createBuilding import (
     BuildingSection,
     GeometrySegment,
     BuildingModel,

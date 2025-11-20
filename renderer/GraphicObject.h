@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
 #include "Face.h"
 
@@ -11,6 +12,12 @@ public:
     void AddPoint(const QVector3D& p);
     void AddFace(int i0, int i1, int i2, const QColor& color);
     void ComputeFaceNormals();
+
+    /**
+     * Возвращает максимальную длину (размер по оси X) и глубину (размер по оси Z) объекта.
+     * @return QVector2D, где x - длина (ширина), z - глубина (глубина/фасад)
+     */
+    QVector2D getDimensions() const;
 
     /**
      * Размещает объект в глобальном пространстве.

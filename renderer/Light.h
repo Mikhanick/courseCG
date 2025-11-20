@@ -23,3 +23,4 @@ public:
     virtual void MarkShadowMapDirty() = 0;
     virtual CameraPtr GetCamera() const = 0;
 };
+

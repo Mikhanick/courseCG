@@ -23,8 +23,8 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
-    setFixedSize(1920, 1200);
+    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
+    setFixedSize(800, 600);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
 
     m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.9, 0.3)));
     GenerateCityWithMap(); // Use the new city map generation

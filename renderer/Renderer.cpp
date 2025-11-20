@@ -40,7 +40,7 @@ void Renderer::EnsureBuffers(const Scene& scene) {
          // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
         for (auto &light: scene.lights)
         {
-            shadowZBuf.push_back(light->CreateShadowZBuffer(46340, 46340, ortho_proj->Clone())); // 46340 максимально
+            shadowZBuf.push_back(light->CreateShadowZBuffer(10000, 10000, ortho_proj->Clone())); // 46340 максимально
 
             ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
             RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
