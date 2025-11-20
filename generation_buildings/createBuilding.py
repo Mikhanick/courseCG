@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 
 class GeometryComponent(ABC):
-    """Базовый класс для геометрических компонентов (паттерн Компоновщик)"""
+    """Базовый класс для геометрических компонентов с поддержкой 3D-координат"""
 
     @abstractmethod
     def add_to_section(
@@ -16,7 +16,6 @@ class GeometryComponent(ABC):
         section: "BuildingSection",
         position: Tuple[float, float, float],
         orientation: str,
-        scale: float,
         invert_normals: bool = False,
     ):
         pass
@@ -24,59 +23,13 @@ class GeometryComponent(ABC):
 
 @dataclass
 class SimplePolygon(GeometryComponent):
-    points: List[Tuple[float, float]]
+    """Простой полигон с поддержкой абсолютных 3D-координат"""
+
+    points: List[
+        Tuple[float, float, float]
+    ]  # Абсолютные координаты в локальной системе панели (x, y, z)
     color: Union[str, callable]
     invert: bool = False
-    margin_type: str = "relative"  # Новое свойство
-    margin_value: float = 0.0  # Новое свойство
-
-    def calculate_absolute_points(self, scale: float) -> List[Tuple[float, float]]:
-        """Рассчитывает абсолютные координаты точек с учетом типа отступа"""
-        if self.margin_type == "absolute" and self.margin_value > 0:
-            # Преобразуем абсолютные отступы в относительные для текущего масштаба
-            relative_margin = self.margin_value / scale
-            # Применяем отступы ко всем точкам
-            return [
-                (
-                    min(max(x * (1 - 2 * relative_margin) + relative_margin, 0), 1),
-                    min(max(y * (1 - 2 * relative_margin) + relative_margin, 0), 1),
-                )
-                for (x, y) in self.points
-            ]
-        return self.points
-
-    def add_to_section(
-        self,
-        section: "BuildingSection",
-        position: Tuple[float, float, float],
-        orientation: str,
-        scale: float,
-        invert_normals: bool = False,
-    ):
-        x0, y0, z0 = position
-        # Используем пересчитанные точки с учетом абсолютных отступов
-        actual_points = self.calculate_absolute_points(scale)
-
-        indices = []
-        for px, py in actual_points:
-            # Масштабируем относительные координаты до размеров панели
-            px_s = px * scale
-            py_s = py * scale
-            if orientation == "front":
-                wx, wy, wz = x0 + px_s, y0 + py_s, z0
-            elif orientation == "back":
-                wx, wy, wz = x0 + (scale - px_s), y0 + py_s, z0
-            elif orientation == "left":
-                wx, wy, wz = x0, y0 + py_s, z0 + (scale - px_s)
-            elif orientation == "right":
-                wx, wy, wz = x0, y0 + py_s, z0 + px_s
-            else:
-                raise ValueError(f"Invalid orientation: {orientation}")
-            idx = section.add_vertex(wx, wy, wz)
-            indices.append(idx)
-        # Комбинируем флаги инверсии: локальный и глобальный
-        final_invert = self.invert ^ invert_normals
-        section.add_polygon(indices, self.get_color(), invert=final_invert)
 
     def get_color(self):
         """Возвращает цвет, вычисляя его динамически если это функция"""
@@ -84,25 +37,65 @@ class SimplePolygon(GeometryComponent):
             return self.color()
         return self.color
 
+    # НАЙДИТЕ ЭТИ МЕТОДЫ В КЛАССАХ SimplePolygon И RectangleWithCutout:
+
+
+    # В классе SimplePolygon, метод add_to_section:
+    def add_to_section(
+        self,
+        section: "BuildingSection",
+        position: Tuple[float, float, float],
+        orientation: str,
+        invert_normals: bool = False,
+    ):
+        x0, y0, z0 = position
+        indices = []
+
+        for local_x, local_y, local_z in self.points:
+            # ИЗМЕНИТЕ ЭТУ ЧАСТЬ КОДА:
+            if orientation == "front":
+                # Фасадная стена на z=0, наружу - отрицательное направление z
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 - local_z  # БЫЛО: z0 + local_z
+
+            elif orientation == "back":
+                # Задняя стена на z=depth, наружу - положительное направление z
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 + local_z  # БЫЛО: z0 - local_z
+
+            elif orientation == "left":
+                # Левая стена на x=0, наружу - отрицательное направление x
+                wx = x0 - local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
+
+            elif orientation == "right":
+                # Правая стена на x=width, наружу - положительное направление x
+                wx = x0 + local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
+
+            else:
+                raise ValueError(f"Invalid orientation: {orientation}")
+
+            idx = section.add_vertex(wx, wy, wz)
+            indices.append(idx)
+
+        final_invert = self.invert ^ invert_normals
+        section.add_polygon(indices, self.get_color(), invert=final_invert)
 
 @dataclass
 class RectangleWithCutout(GeometryComponent):
     """
-    Полигон с вырезом произвольной формы.
-    Внешняя граница задается вершинами в порядке их соединения.
-    Вырез задается вершинами в порядке их соединения.
-    Все координаты задаются в относительных единицах [0..1] x [0..1].
+    Полигон с вырезом в абсолютных 3D-координатах
     """
 
-    cutout_points: List[
-        Tuple[float, float]
-    ]  # Вершины выреза в относительных координатах [0..1] x [0..1]
-    color: Union[str, callable]  # Может быть строкой или функцией, возвращающей цвет
-    invert: bool = False  # Новое свойство для управления нормалями
-    # Внешние точки по умолчанию - прямоугольник 1x1
-    outer_points: List[Tuple[float, float]] = field(
-        default_factory=lambda: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-    )
+    outer_points: List[Tuple[float, float, float]]  # Внешний контур в метрах (x, y, z)
+    cutout_points: List[Tuple[float, float, float]]  # Контур выреза в метрах (x, y, z)
+    color: Union[str, callable]
+    invert: bool = False
 
     def get_color(self):
         """Возвращает цвет, вычисляя его динамически если это функция"""
@@ -110,83 +103,126 @@ class RectangleWithCutout(GeometryComponent):
             return self.color()
         return self.color
 
+    # В классе RectangleWithCutout, метод add_to_section:
     def add_to_section(
         self,
         section: "BuildingSection",
         position: Tuple[float, float, float],
         orientation: str,
-        scale: float,
         invert_normals: bool = False,
     ):
         x0, y0, z0 = position
-
-        # Преобразуем внешние вершины
         outer_indices = []
-        for px, py in self.outer_points:
-            px_s = px * scale
-            py_s = py * scale
+        cutout_indices = []
+
+        # ИЗМЕНИТЕ ЭТУ ЧАСТЬ ДЛЯ ВНЕШНЕГО КОНТУРА:
+        for local_x, local_y, local_z in self.outer_points:
             if orientation == "front":
-                wx, wy, wz = x0 + px_s, y0 + py_s, z0
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 - local_z  # БЫЛО: z0 + local_z
             elif orientation == "back":
-                wx, wy, wz = x0 + (scale - px_s), y0 + py_s, z0
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 + local_z  # БЫЛО: z0 - local_z
             elif orientation == "left":
-                wx, wy, wz = x0, y0 + py_s, z0 + (scale - px_s)
+                wx = x0 - local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
             elif orientation == "right":
-                wx, wy, wz = x0, y0 + py_s, z0 + px_s
+                wx = x0 + local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
             else:
                 raise ValueError(f"Invalid orientation: {orientation}")
+
             idx = section.add_vertex(wx, wy, wz)
             outer_indices.append(idx)
 
-        # Преобразуем вершины выреза
-        cutout_indices = []
-        for px, py in self.cutout_points:
-            px_s = px * scale
-            py_s = py * scale
+        # ИЗМЕНИТЕ ЭТУ ЧАСТЬ ДЛЯ КОНТУРА ВЫРЕЗА:
+        for local_x, local_y, local_z in self.cutout_points:
             if orientation == "front":
-                wx, wy, wz = x0 + px_s, y0 + py_s, z0
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 - local_z  # БЫЛО: z0 + local_z
             elif orientation == "back":
-                wx, wy, wz = x0 + (scale - px_s), y0 + py_s, z0
+                wx = x0 + local_x
+                wy = y0 + local_y
+                wz = z0 + local_z  # БЫЛО: z0 - local_z
             elif orientation == "left":
-                wx, wy, wz = x0, y0 + py_s, z0 + (scale - px_s)
+                wx = x0 - local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
             elif orientation == "right":
-                wx, wy, wz = x0, y0 + py_s, z0 + px_s
+                wx = x0 + local_z
+                wy = y0 + local_y
+                wz = z0 + local_x
             else:
                 raise ValueError(f"Invalid orientation: {orientation}")
+
             idx = section.add_vertex(wx, wy, wz)
             cutout_indices.append(idx)
 
-        # Триангуляция с вырезом
-        # Создаем полигоны, соединяющие внешние и внутренние вершины
-        # Предполагаем, что оба контура имеют одинаковое количество вершин
-        if len(outer_indices) != len(cutout_indices):
-            raise ValueError(
-                "Outer and cutout contours must have the same number of vertices for simple triangulation"
-            )
-
+        # Создаем грани для рамки (между внешним и внутренним контурами)
         frame_polygons = []
-        n = len(outer_indices)
-        for i in range(n):
-            next_i = (i + 1) % n
-            # Создаем четырехугольник между внешним и внутренним контурами
+        n_outer = len(outer_indices)
+        n_cutout = len(cutout_indices)
+
+        # Триангуляция для прямоугольной рамки
+        if n_outer == 4 and n_cutout == 4:
+            # Нижняя грань рамки
             frame_polygons.append(
                 [
-                    outer_indices[i],
-                    outer_indices[next_i],
-                    cutout_indices[next_i],
-                    cutout_indices[i],
+                    outer_indices[0],
+                    outer_indices[1],
+                    cutout_indices[1],
+                    cutout_indices[0],
                 ]
             )
+            # Правая грань рамки
+            frame_polygons.append(
+                [
+                    outer_indices[1],
+                    outer_indices[2],
+                    cutout_indices[2],
+                    cutout_indices[1],
+                ]
+            )
+            # Верхняя грань рамки
+            frame_polygons.append(
+                [
+                    outer_indices[2],
+                    outer_indices[3],
+                    cutout_indices[3],
+                    cutout_indices[2],
+                ]
+            )
+            # Левая грань рамки
+            frame_polygons.append(
+                [
+                    outer_indices[3],
+                    outer_indices[0],
+                    cutout_indices[0],
+                    cutout_indices[3],
+                ]
+            )
+        else:
+            # Общая триангуляция для произвольных контуров
+            for i in range(min(n_outer, n_cutout)):
+                next_i = (i + 1) % min(n_outer, n_cutout)
+                frame_polygons.append(
+                    [
+                        outer_indices[i],
+                        outer_indices[next_i],
+                        cutout_indices[next_i],
+                        cutout_indices[i],
+                    ]
+                )
 
-        # Добавляем полигоны рамки
         final_invert = self.invert ^ invert_normals
         color = self.get_color()
         for polygon_indices in frame_polygons:
             section.add_polygon(polygon_indices, color, invert=final_invert)
-
-    def get_cutout_points(self) -> List[Tuple[float, float]]:
-        """Возвращает точки выреза для создания окна того же размера"""
-        return self.cutout_points
 
 
 @dataclass
@@ -194,7 +230,7 @@ class CompositeGeometry(GeometryComponent):
     """Композитный геометрический объект — контейнер для других компонентов"""
 
     children: List[GeometryComponent] = field(default_factory=list)
-    invert: bool = False  # Новое свойство для управления нормалями
+    invert: bool = False
 
     def add_child(self, child: GeometryComponent):
         self.children.append(child)
@@ -204,56 +240,22 @@ class CompositeGeometry(GeometryComponent):
         section: "BuildingSection",
         position: Tuple[float, float, float],
         orientation: str,
-        scale: float,
         invert_normals: bool = False,
     ):
-        # Комбинируем флаги инверсии
         final_invert = self.invert ^ invert_normals
         for child in self.children:
-            # Передаем комбинированный флаг инверсии детям
-            child.add_to_section(section, position, orientation, scale, final_invert)
+            child.add_to_section(section, position, orientation, final_invert)
 
 
 @dataclass
 class GeometrySegment(CompositeGeometry):
-    """
-    Сегмент геометрии — композитная панель.
-    Состоит из рамки с вырезом и окна на месте выреза.
-    """
+    """Сегмент геометрии — композитная панель с поддержкой 3D-элементов"""
 
-    points: List[Tuple[float, float]] = field(default_factory=list)
-    color: Union[str, callable] = "#8B7D6B"  # Может быть строкой или функцией
-    cutouts: List[List[Tuple[float, float]]] = field(default_factory=list)
-    invert: bool = False  # Новое свойство для управления нормалями
+    children: List[GeometryComponent] = field(default_factory=list)
+    invert: bool = False
 
     def __post_init__(self):
-        # Если заданы точки и цвет, создаем соответствующие геометрические компоненты
-        if self.points and not self.children:
-            if self.cutouts:
-                # Если есть вырезы, создаем RectangleWithCutout для каждого выреза
-                for cutout in self.cutouts:
-                    self.add_child(
-                        RectangleWithCutout(
-                            cutout_points=cutout,
-                            color=self.color,
-                            invert=self.invert,  # Передаем флаг инверсии
-                        )
-                    )
-            else:
-                # Если нет вырезов, создаем SimplePolygon
-                self.add_child(
-                    SimplePolygon(
-                        points=self.points,
-                        color=self.color,
-                        invert=self.invert,  # Передаем флаг инверсии
-                    )
-                )
-
-    def get_color(self):
-        """Возвращает цвет, вычисляя его динамически если это функция"""
-        if callable(self.color):
-            return self.color()
-        return self.color
+        pass  # Никакой автоматической геометрии по умолчанию
 
 
 class BuildingSection:
@@ -369,21 +371,23 @@ class BuildingSection:
         segment: GeometryComponent,
         position: Tuple[float, float, float],
         orientation: str = "front",
-        scale: float = 1.0,
         invert_normals: bool = False,
     ):
-        segment.add_to_section(self, position, orientation, scale, invert_normals)
+        """Добавляет сегмент с абсолютными координатами"""
+        segment.add_to_section(self, position, orientation, invert_normals)
         self.walls_created[orientation] = True
 
     def copy_front_wall_to_back(self, width: float, depth: float, invert: bool = False):
+        """Копирует фасадную стену на заднюю с правильной ориентацией"""
         front_vertices = []
         for i, v in enumerate(self.vertices):
-            if abs(v[2] - 0) < 0.001:
+            if abs(v[2] - 0) < 0.001:  # Находим вершины фасадной стены (z=0)
                 front_vertices.append((i, v))
         if not front_vertices:
             return
         vertex_map = {}
         for orig_idx, v in front_vertices:
+            # Копируем вершины на заднюю стену (z=depth)
             new_idx = self.add_vertex(v[0], v[1], depth)
             vertex_map[orig_idx] = new_idx
         for face in self.faces:
@@ -403,14 +407,16 @@ class BuildingSection:
         self.walls_created["back"] = True
 
     def copy_left_wall_to_right(self, width: float, depth: float, invert: bool = False):
+        """Копирует левую стену на правую с правильной ориентацией"""
         left_vertices = []
         for i, v in enumerate(self.vertices):
-            if abs(v[0] - 0) < 0.001:
+            if abs(v[0] - 0) < 0.001:  # Находим вершины левой стены (x=0)
                 left_vertices.append((i, v))
         if not left_vertices:
             return
         vertex_map = {}
         for orig_idx, v in left_vertices:
+            # Копируем вершины на правую стену (x=width)
             new_idx = self.add_vertex(width, v[1], v[2])
             vertex_map[orig_idx] = new_idx
         for face in self.faces:
@@ -470,19 +476,19 @@ class RoofGeometry:
         width: float,
         depth: float,
         height: float,
-        base_height: float = 0.0,  # Добавлен параметр базовой высоты
+        base_height: float = 0.0,  # Всегда 0 по требованию
         color: str = "#222222",
         invert: bool = False,
     ):
-        """Создает простую двускатную крышу"""
-        # Вершины основания крыши (с учетом базовой высоты)
-        v0 = section.add_vertex(0, base_height, 0)
-        v1 = section.add_vertex(width, base_height, 0)
-        v2 = section.add_vertex(width, base_height, depth)
-        v3 = section.add_vertex(0, base_height, depth)
+        """Создает простую двускатную крышу начинающуюся с высоты 0"""
+        # Вершины основания крыши на высоте 0
+        v0 = section.add_vertex(0, 0, 0)
+        v1 = section.add_vertex(width, 0, 0)
+        v2 = section.add_vertex(width, 0, depth)
+        v3 = section.add_vertex(0, 0, depth)
 
         # Вершина конька крыши
-        v4 = section.add_vertex(width / 2, base_height + height, depth / 2)
+        v4 = section.add_vertex(width / 2, height, depth / 2)
 
         # Грани крыши
         section.add_polygon([v0, v1, v4], color, invert=invert)
@@ -497,29 +503,23 @@ class RoofGeometry:
         width: float,
         depth: float,
         height: float,
-        base_height: float = 0.0,  # Добавлен параметр базовой высоты
+        base_height: float = 0.0,  # Всегда 0 по требованию
         color: str = "#444444",
         border_width: float = 0.5,
         invert: bool = False,
     ):
-        """Создает плоскую крышу с бортиком"""
-        # Нижние вершины крыши (уровень верха здания)
-        v0 = section.add_vertex(0, base_height, 0)
-        v1 = section.add_vertex(width, base_height, 0)
-        v2 = section.add_vertex(width, base_height, depth)
-        v3 = section.add_vertex(0, base_height, depth)
+        """Создает плоскую крышу с бортиком начинающуюся с высоты 0"""
+        # Нижние вершины крыши (на высоте 0)
+        v0 = section.add_vertex(0, 0, 0)
+        v1 = section.add_vertex(width, 0, 0)
+        v2 = section.add_vertex(width, 0, depth)
+        v3 = section.add_vertex(0, 0, depth)
 
         # Верхние вершины бортика
-        v4 = section.add_vertex(border_width, base_height + height, border_width)
-        v5 = section.add_vertex(
-            width - border_width, base_height + height, border_width
-        )
-        v6 = section.add_vertex(
-            width - border_width, base_height + height, depth - border_width
-        )
-        v7 = section.add_vertex(
-            border_width, base_height + height, depth - border_width
-        )
+        v4 = section.add_vertex(border_width, height, border_width)
+        v5 = section.add_vertex(width - border_width, height, border_width)
+        v6 = section.add_vertex(width - border_width, height, depth - border_width)
+        v7 = section.add_vertex(border_width, height, depth - border_width)
 
         # Верхняя плоскость крыши
         section.add_polygon([v4, v5, v6, v7], "#333333", invert=invert)
@@ -538,16 +538,16 @@ class RoofGeometry:
         vertices: List[Tuple[float, float, float]],
         faces: List[List[int]],
         colors: List[str],
-        base_height: float = 0.0,  # Добавлен параметр базовой высоты
+        base_height: float = 0.0,  # Всегда 0 по требованию
         invert_flags: Optional[List[bool]] = None,
     ):
-        """Создает кастомную крышу по заданным вершинам и граням"""
+        """Создает кастомную крышу по заданным вершинам и граням начинающуюся с высоты 0"""
         if invert_flags is None:
             invert_flags = [False] * len(faces)
 
         vertex_indices = []
         for x, y, z in vertices:
-            # Сдвигаем вершины на базовую высоту
+            # Сдвигаем вершины на базовую высоту (всегда 0)
             vertex_indices.append(section.add_vertex(x, y + base_height, z))
 
         for i, face in enumerate(faces):
@@ -560,7 +560,7 @@ class RoofGeometry:
 
 class Building:
     """
-    Упрощенный интерфейс для создания зданий
+    Упрощенный интерфейс для создания зданий с абсолютными координатами
     """
 
     def __init__(
@@ -570,24 +570,20 @@ class Building:
         author: str = "UrbanSim3D",
         version: str = "1.0",
         floor_count: int = 1,
-        width_panels: int = 1,
-        depth_panels: int = 1,
-        panel_width: float = 5.0,
-        panel_depth: float = 5.0,
-        floor_height: float = 3.5,
-        ground_floor_height: Optional[float] = None,
-        roof_type: str = "simple",
+        width: float = 20.0,  # Общая ширина здания в метрах
+        depth: float = 8.0,  # Общая глубина здания в метрах
+        ground_floor_height: float = 2.8,
+        typical_floor_height: float = 2.8,
+        roof_type: str = "flat",
         roof_height: Optional[float] = None,
     ):
         """
-        Создает новое здание с автоматическим расчетом размеров
+        Создает новое здание с абсолютными размерами
 
-        :param width_panels: количество панелей по ширине здания
-        :param depth_panels: количество панелей по глубине здания
-        :param panel_width: ширина одной панели в метрах
-        :param panel_depth: глубина одной панели в метрах
-        :param floor_height: высота типового этажа в метрах
-        :param ground_floor_height: высота первого этажа (если None, используется floor_height)
+        :param width: общая ширина здания в метрах (по оси X)
+        :param depth: общая глубина здания в метрах (по оси Z)
+        :param ground_floor_height: высота первого этажа в метрах
+        :param typical_floor_height: высота типовых этажей в метрах
         """
         self.name = name
         self.description = description
@@ -595,15 +591,15 @@ class Building:
         self.version = version
         self.floor_count = floor_count
 
-        # Расчет размеров здания
-        self.width = width_panels * panel_width
-        self.depth = depth_panels * panel_depth
-        self.panel_width = panel_width
-        self.panel_depth = panel_depth
-        self.floor_height = floor_height
-        self.ground_floor_height = ground_floor_height or floor_height
+        # Абсолютные размеры здания
+        self.width = width
+        self.depth = depth
+        self.ground_floor_height = ground_floor_height
+        self.typical_floor_height = typical_floor_height
         self.roof_type = roof_type
-        self.roof_height = roof_height or (floor_height * 0.43)
+        self.roof_height = roof_height or (
+            max(ground_floor_height, typical_floor_height) * 0.4
+        )
 
         # Инициализация секций
         self.ground_floor = BuildingSection()
@@ -612,9 +608,6 @@ class Building:
 
         # Установка центров секций
         self._set_section_centers()
-
-        # Список для хранения оконных компонентов
-        self.window_panels = []
 
     def _set_section_centers(self):
         """Устанавливает центры для всех секций здания"""
@@ -626,108 +619,22 @@ class Building:
         if self.typical_floor:
             tf_center = (
                 self.width / 2,
-                self.ground_floor_height + self.floor_height / 2,
+                self.ground_floor_height + self.typical_floor_height / 2,
                 self.depth / 2,
             )
             self.typical_floor.set_center(tf_center)
 
-        # Центр крыши
-        roof_base_height = (
-            self.ground_floor_height + max(0, self.floor_count - 1) * self.floor_height
-        )
+        # Центр крыши (всегда начинается с высоты 0)
         roof_center = (
             self.width / 2,
-            roof_base_height + self.roof_height / 2,
+            self.roof_height / 2,  # Не добавляем высоту этажей
             self.depth / 2,
         )
         self.roof.set_center(roof_center)
 
     @staticmethod
-    def create_window_frame(
-        margin: float = 0.23,
-        margin_type: str = "relative",  # "relative" или "absolute"
-        frame_color: str = "#A4A4A4",
-        glass_color: Optional[Union[str, callable]] = None,
-        invert_frame: bool = False,
-        invert_glass: bool = False,
-    ) -> GeometrySegment:
-        """
-        Создает стандартную панель с окном
-        
-        :param margin: отступ от края панели до окна
-        :param margin_type: "relative" (доля от размера панели) или "absolute" (в метрах)
-        :param frame_color: цвет рамки окна
-        :param glass_color: цвет стекла (если None, используется случайный цвет)
-        :param invert_frame: инвертировать нормали для рамки
-        :param invert_glass: инвертировать нормали для стекла
-        :return: Готовая панель с окном
-        """
-        # Создаем сегмент
-        panel = GeometrySegment(invert=invert_frame)
-
-        # Если margin задан в абсолютных единицах, преобразуем в относительные
-        # (это будет сделано при добавлении в секцию с учетом scale)
-        # Для геометрических компонентов всегда используем относительные координаты [0..1]
-        window_points = [
-            (margin if margin_type == "relative" else 0.0, 
-            margin if margin_type == "relative" else 0.0),
-            (1.0 - (margin if margin_type == "relative" else 0.0), 
-            margin if margin_type == "relative" else 0.0),
-            (1.0 - (margin if margin_type == "relative" else 0.0), 
-            1.0 - (margin if margin_type == "relative" else 0.0)),
-            (margin if margin_type == "relative" else 0.0, 
-            1.0 - (margin if margin_type == "relative" else 0.0)),
-        ]
-
-        # Добавляем рамку с вырезом
-        panel.add_child(
-            RectangleWithCutout(
-                cutout_points=window_points, 
-                color=frame_color, 
-                invert=invert_frame,
-            )
-        )
-
-        # Определяем цвет стекла
-        if glass_color is None:
-            glass_color = Building.get_window_color  
-
-        # Добавляем стекло
-        panel.add_child(
-            SimplePolygon(
-                points=window_points, 
-                color=glass_color, 
-                invert=invert_glass,
-                margin_type=margin_type,
-                margin_value=margin
-            )
-        )
-
-        return panel
-
-    @staticmethod
-    def create_solid_panel(
-        color: Union[str, callable] = "#A4A4A4", invert: bool = False
-    ) -> GeometrySegment:
-        """
-        Создает сплошную панель без окон
-
-        :param color: цвет панели (строка или функция)
-        :param invert: инвертировать нормали
-        :return: Готовая сплошная панель
-        """
-        panel = GeometrySegment(invert=invert)
-        panel.add_child(
-            SimplePolygon(
-                points=[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-                color=color,
-                invert=invert,
-            )
-        )
-        return panel
-
-    @staticmethod
     def get_window_color():
+        """Генерирует случайный цвет для окна"""
         r = random.random()
 
         # Приоритет: особый цвет (2%)
@@ -758,18 +665,9 @@ class Building:
                 "#243457",
                 "#13171F",
                 "#48657C",
-                # Deep greens
-                "#00271E",
-                "#0B3D2E",
-                "#023020",
-                "#123C29",
-                "#003B36",
-                # Deep reds/maroons
-                "#1A0000",
-                "#3D0C02",
-                "#4C0C0C",
-                "#5D0C0C",
-                "#610B0B",
+                "#5D4C4C",
+                "#623C3C",
+                "#431C1C",
                 # Charcoal/grays (cool/warm)
                 "#161528",
                 "#20202C",
@@ -802,16 +700,16 @@ class Building:
         wall_type: str,
         panels: List[GeometryComponent],
         floor_type: str = "ground",
-        panels_count: Optional[int] = None,
+        start_position: Optional[Tuple[float, float, float]] = None,
         invert: bool = False,
     ):
         """
-        Добавляет стену к зданию
+        Добавляет стену к зданию с абсолютными координатами
 
         :param wall_type: тип стены ('front', 'back', 'left', 'right')
         :param panels: список панелей для стены
         :param floor_type: тип этажа ('ground' или 'typical')
-        :param panels_count: количество панелей (если None, используется длина списка panels)
+        :param start_position: начальная позиция (x, y, z) для первой панели
         :param invert: инвертировать нормали для всей стены
         """
         # Определяем секцию
@@ -822,35 +720,55 @@ class Building:
         else:
             raise ValueError("Invalid floor type or typical floor not available")
 
-        # Определяем количество панелей
-        if panels_count is None:
-            panels_count = len(panels)
-
-        # Определяем размер панели в зависимости от ориентации стены
-        panel_size = (
-            self.panel_width if wall_type in ["front", "back"] else self.panel_depth
+        # Определяем текущую высоту этажа
+        current_height = (
+            self.ground_floor_height
+            if floor_type == "ground"
+            else self.typical_floor_height
         )
-        total_size = self.width if wall_type in ["front", "back"] else self.depth
 
-        # Добавляем панели
-        for i in range(panels_count):
-            panel = panels[i % len(panels)]
+        # Определяем позицию по умолчанию
+        if start_position is None:
+            y_pos = 0
             if wall_type == "front":
-                pos = (i * panel_size, 0, 0)
-                orientation = "front"
+                start_position = (0, y_pos, 0)
             elif wall_type == "back":
-                pos = (i * panel_size, 0, self.depth)
-                orientation = "back"
+                start_position = (0, y_pos, self.depth)
             elif wall_type == "left":
-                pos = (0, 0, i * panel_size)
-                orientation = "left"
+                start_position = (0, y_pos, 0)
             elif wall_type == "right":
-                pos = (self.width, 0, i * panel_size)
-                orientation = "right"
+                start_position = (self.width, y_pos, 0)
             else:
                 raise ValueError(f"Invalid wall type: {wall_type}")
 
-            section.add_geometry_segment(panel, pos, orientation, panel_size, invert)
+        x0, y0, z0 = start_position
+
+        # Добавляем каждую панель
+        for i, panel in enumerate(panels):
+            if wall_type == "front":
+                # Для фасада: двигаемся по оси X
+                pos = (x0 + i * self.width / len(panels), y0, z0)
+                orientation = "front"
+
+            elif wall_type == "back":
+                # Для задней стены: двигаемся по оси X
+                pos = (x0 + i * self.width / len(panels), y0, z0)
+                orientation = "back"
+
+            elif wall_type == "left":
+                # Для левой стены: двигаемся по оси Z
+                pos = (x0, y0, z0 + i * self.depth / len(panels))
+                orientation = "left"
+
+            elif wall_type == "right":
+                # Для правой стены: двигаемся по оси Z
+                pos = (x0, y0, z0 + i * self.depth / len(panels))
+                orientation = "right"
+
+            else:
+                raise ValueError(f"Invalid wall type: {wall_type}")
+
+            section.add_geometry_segment(panel, pos, orientation, invert)
 
     def complete_walls(self, floor_type: str = "ground"):
         """
@@ -869,16 +787,19 @@ class Building:
         if section.walls_created["front"] and not section.walls_created["back"]:
             section.copy_front_wall_to_back(self.width, self.depth, invert=True)
 
+        # Для левой и правой стен используем высоту текущего этажа
+        current_height = (
+            self.ground_floor_height
+            if floor_type == "ground"
+            else self.typical_floor_height
+        )
+
         if section.walls_created["left"] and not section.walls_created["right"]:
             section.copy_left_wall_to_right(self.width, self.depth, invert=True)
 
     def create_roof(self):
-        """Создает крышу в соответствии с выбранным типом"""
+        """Создает крышу в соответствии с выбранным типом, начинающуюся с высоты 0"""
         self.roof.clear()
-
-        roof_base_height = (
-            self.ground_floor_height + max(0, self.floor_count - 1) * self.floor_height
-        )
 
         if self.roof_type == "simple":
             RoofGeometry.create_simple_roof(
@@ -886,7 +807,7 @@ class Building:
                 self.width,
                 self.depth,
                 self.roof_height,
-                base_height=roof_base_height,  # Передаем базовую высоту
+                base_height=0.0,  # Всегда 0 по требованию
             )
         elif self.roof_type == "flat":
             RoofGeometry.create_flat_roof(
@@ -894,8 +815,9 @@ class Building:
                 self.width,
                 self.depth,
                 self.roof_height,
-                base_height=roof_base_height,  # Передаем базовую высоту
-                border_width=min(self.panel_width, self.panel_depth) * 0.1,
+                base_height=0.0,  # Всегда 0 по требованию
+                border_width=min(self.width, self.depth)
+                * 0.025,  # 2.5% от меньшего размера
             )
         elif self.roof_type == "custom":
             # Для кастомной крыши пользователь должен вызвать add_custom_roof
@@ -907,7 +829,7 @@ class Building:
                 self.width,
                 self.depth,
                 self.roof_height,
-                base_height=roof_base_height,  # Передаем базовую высоту
+                base_height=0.0,  # Всегда 0 по требованию
             )
 
     def add_custom_roof(
@@ -917,20 +839,16 @@ class Building:
         colors: List[str],
         invert_flags: Optional[List[bool]] = None,
     ):
-        """Добавляет кастомную геометрию крыши"""
+        """Добавляет кастомную геометрию крыши начинающуюся с высоты 0"""
         self.roof_type = "custom"
         self.roof.clear()
-
-        roof_base_height = (
-            self.ground_floor_height + max(0, self.floor_count - 1) * self.floor_height
-        )
 
         RoofGeometry.create_custom_roof(
             self.roof,
             vertices,
             faces,
             colors,
-            base_height=roof_base_height,  # Передаем базовую высоту
+            base_height=0.0,  # Всегда 0 по требованию
             invert_flags=invert_flags,
         )
 
@@ -988,217 +906,3 @@ class Building:
         """Сохраняет здание в файл"""
         with open(filename, "w", encoding="utf-8") as f:
             f.write(self.to_json())
-
-
-# Примеры использования упрощенного интерфейса:
-
-
-def generate_soviet_apartment() -> str:
-    """Генерирует советский панельный дом"""
-    # Создаем здание с упрощенным интерфейсом
-    building = Building(
-        name="apartment_soviet_automatic",
-        description="Советский панельный дом с автоматическими размерами",
-        floor_count=9,
-        width_panels=10,  # 10 панелей по ширине
-        depth_panels=4,  # 4 панели по глубине
-        panel_width=5.0,  # ширина панели 5 метров
-        panel_depth=7.5,  # глубина панели 7.5 метров
-        floor_height=3.5,  # высота типового этажа
-        ground_floor_height=5.0,  # высота первого этажа
-        roof_type="simple",
-    )
-
-    # Создаем панель для входа (без окна)
-    entrance_panel = Building.create_solid_panel(color="#A4A4A4")
-
-    # Добавляем стены первого этажа
-    # Каждая панель создается отдельно для уникального цвета окна
-    front_panels = []
-    for i in range(10):
-        if i == 2:  # центральная панель - вход
-            front_panels.append(entrance_panel)
-        else:
-            front_panels.append(
-                Building.create_window_frame(
-                    margin=0.23,
-                    frame_color="#A4A4A4",
-                    # glass_color будет вызван при добавлении панели
-                )
-            )
-
-    building.add_wall("front", front_panels, "ground")
-
-    # Для боковых стен создаем отдельные панели
-    left_panels = [
-        Building.create_window_frame(
-            margin=0.23,
-            frame_color="#A4A4A4",
-        )
-        for _ in range(4)
-    ]
-    building.add_wall("left", left_panels, "ground")
-    building.complete_walls("ground")
-
-    # Добавляем стены типовых этажей
-    if building.typical_floor:
-        typical_front_panels = [
-            Building.create_window_frame(
-                margin=0.23,
-                frame_color="#A4A4A4",
-            )
-            for _ in range(10)
-        ]
-        building.add_wall("front", typical_front_panels, "typical")
-
-        typical_left_panels = [
-            Building.create_window_frame(
-                margin=0.23,
-                frame_color="#A4A4A4",
-            )
-            for _ in range(4)
-        ]
-        building.add_wall("left", typical_left_panels, "typical")
-        building.complete_walls("typical")
-
-    # Завершаем создание здания
-    building.finalize()
-
-    return building.to_json()
-
-
-def generate_building_kiosk_pechat() -> str:
-    """Генерирует киоск печати с вывеской"""
-    # Создаем киоск с упрощенным интерфейсом
-    building = Building(
-        name="kiosk_pechat",
-        description="Киоск печати с вывеской",
-        floor_count=1,
-        width_panels=3,  # 3 панели по ширине
-        depth_panels=2,  # 2 панели по глубине
-        panel_width=2.0,  # ширина панели 2 метра
-        panel_depth=2.0,  # глубина панели 2 метра
-        floor_height=3.0,  # высота этажа
-        roof_type="custom",  # кастомная крыша для вывески
-    )
-
-    # Создаем панели с уникальными цветами окон
-    front_panels = [
-        Building.create_window_frame(
-            margin=0.15,
-            frame_color="#964B00",  # Коричневый цвет для киоска
-            glass_color="#336699",  # Голубое стекло (фиксированный цвет)
-        )
-        for _ in range(3)
-    ]
-
-    # Создаем панель для задней стены (без окна)
-    back_panels = [
-        Building.create_solid_panel(color="#8B4513")
-        for _ in range(3)  # Темно-коричневый
-    ]
-
-    left_panels = [
-        Building.create_window_frame(
-            margin=0.15,
-            frame_color="#964B00",
-            glass_color="#336699",
-        )
-        for _ in range(2)
-    ]
-
-    # Добавляем стены
-    building.add_wall("front", front_panels, "ground")
-    building.add_wall("left", left_panels, "ground")
-    building.add_wall("back", back_panels, "ground")
-    building.complete_walls("ground")
-
-    # Создаем кастомную крышу с вывеской
-    roof_base_height = building.ground_floor_height  # Высота основания крыши
-
-    roof_vertices = [
-        # Основание крыши (уровень верха здания)
-        (0, 0, 0),
-        (building.width, 0, 0),
-        (building.width, 0, building.depth),
-        (0, 0, building.depth),
-        # Верхняя часть бортика
-        (0.2, 0.5, 0.2),
-        (building.width - 0.2, 0.5, 0.2),
-        (building.width - 0.2, 0.5, building.depth - 0.2),
-        (0.2, 0.5, building.depth - 0.2),
-        # Вывеска над входом
-        (building.width * 0.2, 0.6, -0.3),
-        (building.width * 0.8, 0.6, -0.3),
-        (building.width * 0.8, 0.9, -0.3),
-        (building.width * 0.2, 0.9, -0.3),
-        (building.width * 0.2, 0.6, 0),
-        (building.width * 0.8, 0.6, 0),
-        (building.width * 0.8, 0.9, 0),
-        (building.width * 0.2, 0.9, 0),
-    ]
-
-    roof_faces = [
-        [4, 5, 6, 7],  # Верх крыши
-        [0, 1, 5, 4],
-        [1, 2, 6, 5],
-        [2, 3, 7, 6],
-        [3, 0, 4, 7],  # Бортики
-        [8, 9, 10, 11],
-        [11, 10, 14, 15],
-        [12, 13, 14, 15],  # Вывеска спереди/сверху/сзади
-        [8, 12, 15, 11],
-        [9, 13, 14, 10],  # Боковые части вывески
-    ]
-
-    roof_colors = [
-        "#333333",
-        "#444444",
-        "#444444",
-        "#444444",
-        "#444444",
-        "#AA0000",
-        "#880000",
-        "#660000",
-        "#990000",
-        "#990000",
-    ]
-
-    # Флаги инверсии для каждого полигона
-    invert_flags = [
-        False,  # Верх крыши
-        False,
-        False,
-        False,
-        False,  # Бортики
-        False,
-        False,
-        True,  # Вывеска сзади (инвертируем)
-        False,
-        False,  # Боковые части вывески
-    ]
-
-    # Добавляем кастомную крышу
-    building.add_custom_roof(roof_vertices, roof_faces, roof_colors, invert_flags)
-
-    # Завершаем создание здания
-    building.finalize()
-
-    return building.to_json()
-
-
-if __name__ == "__main__":
-    # Генерация зданий
-    soviet_apartment = generate_soviet_apartment()
-    kiosk_pechat = generate_building_kiosk_pechat()
-
-    # Сохранение в файлы
-    with open("soviet_apartment.json", "w", encoding="utf-8") as f:
-        f.write(soviet_apartment)
-
-    with open("kiosk_pechat.json", "w", encoding="utf-8") as f:
-        f.write(kiosk_pechat)
-
-    print("Здания успешно сгенерированы!")
-    print("- soviet_apartment.json")
-    print("- kiosk_pechat.json")
