@@ -12,6 +12,7 @@
 #include <queue>
 #include <unordered_map>
 #include <QDebug>
+#include "../../GlobalRandom.h"  // Include global random functionality
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -23,19 +24,17 @@ namespace City {
 constexpr int MIN_ROAD_LENGTH_STEPS = 7;   // Minimum road length in grid steps
 constexpr int MAX_ROAD_LENGTH_STEPS = 18;   // Maximum road length in grid steps
 constexpr int MAX_ROADS_PER_BLOCK = 40;    // Maximum roads per block (W)
-constexpr int MAX_RELOCATION_ATTEMPTS = 120; // Maximum relocation attempts for intersections (Q)
+constexpr int MAX_RELOCATION_ATTEMPTS = 160; // Maximum relocation attempts for intersections (Q)
 constexpr int EXCLUSION_RADIUS = 6;
-constexpr float GRID_STEP = 13.f;         // Grid step size
-constexpr float BOUNDARY_BUFFER = 40; // Buffer from block boundary
+constexpr float GRID_STEP = 13.5f;         // Grid step size
+constexpr float BOUNDARY_BUFFER = 45; // Buffer from block boundary
 constexpr int MAX_ROADS_PER_POINT = 5;     // Максимальное количество дорог в одной точке
 
 
 // Helper function to generate random float between min and max
 float randomFloat(float min, float max) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(min, max);
-    return dis(gen);
+    return dis(globalRandomGenerator);
 }
 
 // Helper function to calculate angle between two vectors
@@ -165,7 +164,7 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
 
     // Параметры проверки сторон (в блоках сетки) - настраиваемые константы
     constexpr float SEARCH_DISTANCE_PERPENDICULAR_BLOCKS = 3.0f; // N
-    constexpr float OFFSET_FROM_ENDS_BLOCKS = 1.8f;              // M
+    constexpr float OFFSET_FROM_ENDS_BLOCKS = 2.4f;              // M
     const float searchDistance = SEARCH_DISTANCE_PERPENDICULAR_BLOCKS * GRID_STEP;
     const float offsetDistance = OFFSET_FROM_ENDS_BLOCKS * GRID_STEP;
 
@@ -228,12 +227,10 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
     // 2. ГЕНЕРАЦИЯ ТОЧЕК НА ГРАНИЦАХ КВАРТАЛА
     qDebug() << "\n=== ГЕНЕРАЦИЯ ГРАНИЧНЫХ ТОЧЕК ===";
     std::vector<QVector3D> boundaryPoints;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    
+
     auto generateSidePoints = [&](float fixedCoord, float startCoord, float endCoord, bool isVertical, const QString& sideName) {
         std::uniform_int_distribution<> numPointsDist(1, 2);
-        int numPoints = numPointsDist(gen);
+        int numPoints = numPointsDist(globalRandomGenerator);
         qDebug() << "  " << sideName << ": генерация" << numPoints << "точек";
         
         std::vector<float> coords;
@@ -438,15 +435,15 @@ std::vector<std::unique_ptr<AbstractRoad>> SubdivisionRoadGenerationStrategy::ge
         
         for (int attempt = 0; attempt < MAX_RELOCATION_ATTEMPTS && !visitedPoints.empty(); ++attempt) {
             totalAttempts++;
-            
+
             // Выбор начальной точки (из посещенных)
             std::uniform_int_distribution<> visitedDist(0, static_cast<int>(visitedPoints.size()) - 1);
-            int startIdx = visitedDist(gen);
+            int startIdx = visitedDist(globalRandomGenerator);
             QVector3D startPoint = visitedPoints[startIdx];
-            
+
             // Выбор конечной точки (из внутренней сетки)
             std::uniform_int_distribution<> gridDist(0, static_cast<int>(gridPoints.size()) - 1);
-            int endIdx = gridDist(gen);
+            int endIdx = gridDist(globalRandomGenerator);
             QVector3D endPoint = gridPoints[endIdx];
             
             // Проверка расстояния

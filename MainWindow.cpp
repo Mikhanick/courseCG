@@ -19,6 +19,21 @@
 #include <algorithm>
 #include <cmath>
 
+// Include for global random functionality
+#include "GlobalRandom.h"
+
+// Global random seed variable definition
+unsigned int randomSeed = 12345; // Default seed value
+
+// Global random number generator definition
+std::mt19937 globalRandomGenerator(randomSeed);
+
+// Function to update random generators with new seed
+void updateRandomGenerators(unsigned int newSeed) {
+    randomSeed = newSeed;
+    globalRandomGenerator.seed(randomSeed); // Re-seed the global generator
+}
+
 using City::CityMap;
 using City::SimpleBuildingSelector;
 

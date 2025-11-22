@@ -12,6 +12,8 @@ namespace City {
     class CityMap;
 }
 
+#include "GlobalRandom.h"  // Include global random declarations
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 

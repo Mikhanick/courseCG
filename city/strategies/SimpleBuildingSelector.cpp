@@ -2,7 +2,8 @@
 #include <QColor>
 #include <algorithm>
 #include <random>
-
+// #include "GlobalRandom.h"  // Include global random functionality
+#include "../../GlobalRandom.h"
 namespace City {
 
 GraphicObject SimpleBuildingSelector::select(
@@ -59,20 +60,19 @@ GraphicObject SimpleBuildingSelector::select(
     }
 
     // Случайно выбираем подходящий шаблон
-    static std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<> dist(0, static_cast<int>(fittingTemplates.size()) - 1);
-    auto chosenTemplate = fittingTemplates[dist(gen)];
-    
+    auto chosenTemplate = fittingTemplates[dist(globalRandomGenerator)];
+
     // Генерируем случайные размеры в пределах шаблона, ограниченные доступным пространством
-    std::uniform_real_distribution<float> widthDist(chosenTemplate.minWidth, 
+    std::uniform_real_distribution<float> widthDist(chosenTemplate.minWidth,
         std::min(chosenTemplate.maxWidth, availableWidth));
-    std::uniform_real_distribution<float> depthDist(chosenTemplate.minDepth, 
+    std::uniform_real_distribution<float> depthDist(chosenTemplate.minDepth,
         std::min(chosenTemplate.maxDepth, availableDepth));
     std::uniform_real_distribution<float> heightDist(chosenTemplate.minHeight, chosenTemplate.maxHeight);
 
-    float width = widthDist(gen);
-    float depth = depthDist(gen);
-    float height = heightDist(gen);
+    float width = widthDist(globalRandomGenerator);
+    float depth = depthDist(globalRandomGenerator);
+    float height = heightDist(globalRandomGenerator);
 
     switch (chosenTemplate.type) {
         case BuildingType::High:  return createHighRise(width, depth, height);

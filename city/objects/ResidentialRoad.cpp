@@ -5,18 +5,10 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include "../../GlobalRandom.h"  // Include global random functionality
 
 namespace City {
 
-// Вспомогательная функция для генерации детерминированных случайных значений
-float deterministicRandom(const QVector3D& start, const QVector3D& end, int seed = 0) {
-    float val = std::abs(start.x() * 1000.0f +
-                        start.z() * 100.0f +
-                        end.x() * 10.0f +
-                        end.z() * 1.0f +
-                        seed);
-    return std::fmod(val, 10000.0f) / 10000.0f;
-}
 
 ResidentialRoad::ResidentialRoad(const QVector3D& start, const QVector3D& end, float width)
     : m_start(start), m_end(end), m_width(width)
@@ -33,15 +25,15 @@ float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
-    const float edgeBuffer = 10.0f;    // Отступ от концов дороги
+    const float edgeBuffer = 13.0f;    // Отступ от концов дороги
     const float sideMargin = 9.0f;    // Отступ от края дороги по ширине
 
     // Глубина участков теперь случайная между минимум и максимум
-    const float minPlotDepth = 25.0f;  // Минимальная глубина участка
+    const float minPlotDepth = 20.0f;  // Минимальная глубина участка
     const float maxPlotDepth = 50.0f;  // Максимальная глубина участка
 
     // Гибкие параметры ширины участков (вдоль дороги)
-    const float minPlotWidth = 25.0f; // Минимальная ширина (для узких таунхаусов)
+    const float minPlotWidth = 14.0f; // Минимальная ширина (для узких таунхаусов)
     const float maxPlotWidth = 70.0f; // Максимальная ширина (для длинных домов/особняков)
 
     float roadLength = getLength();
@@ -57,16 +49,16 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
     else if (m_buildingSide != BuildingSide::NONE)
         sides = {m_buildingSide};
 
-    // Детерминированный генератор случайных чисел
-    auto randFloat = [this](int idx) -> float {
-        return deterministicRandom(m_start, m_end, idx);
+    // Генератор случайных чисел, использующий глобальный генератор
+    auto randFloat = []() -> float {
+        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+        return dist(globalRandomGenerator);
     };
 
     for (size_t sideIdx = 0; sideIdx < sides.size(); ++sideIdx) {
         BuildingSide side = sides[sideIdx];
 
         float currentPos = buildableStart;
-        int randBase = static_cast<int>(sideIdx * 1000);
         bool isFirstPlot = true; // Для пропуска первого участка
 
         while (currentPos < buildableEnd) {
@@ -74,10 +66,10 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
             if (remaining < minPlotWidth) break;
 
             // 1. СЛУЧАЙНАЯ ШИРИНА УЧАСТКА (независимо от типа здания)
-            float plotWidth = minPlotWidth + randFloat(randBase++) * (maxPlotWidth - minPlotWidth);
+            float plotWidth = minPlotWidth + randFloat() * (maxPlotWidth - minPlotWidth);
 
             // 2. СЛУЧАЙНАЯ ГЛУБИНА УЧАСТКА
-            float plotDepth = minPlotDepth + randFloat(randBase++) * (maxPlotDepth - minPlotDepth);
+            float plotDepth = minPlotDepth + randFloat() * (maxPlotDepth - minPlotDepth);
 
             // 3. ОГРАНИЧЕНИЕ ПОД ОСТАВШЕЕСЯ ПРОСТРАНСТВО
             if (currentPos + plotWidth > buildableEnd) {
@@ -102,9 +94,9 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
             isFirstPlot = false;
 
             // 6. СЛУЧАЙНЫЙ ПРОМЕЖУТОК
-            float minGap = 1.5f;
-            float maxGap = 6.0f;
-            float gap = minGap + randFloat(randBase++) * (maxGap - minGap);
+            float minGap = 5.5f;
+            float maxGap = 12.0f;
+            float gap = minGap + randFloat() * (maxGap - minGap);
 
             currentPos += plotWidth + gap;
         }
@@ -598,7 +590,8 @@ std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
         QVector3D basePosition = m_start + direction * positionAlongRoad;
 
         // Создаем вариации геометрических размеров для дерева (±10%)
-        float sizeVariation = 0.9f + deterministicRandom(m_start, m_end, i * 100) * 0.2f; // от 0.9 до 1.1 (±10%)
+        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+        float sizeVariation = 0.9f + dist(globalRandomGenerator) * 0.2f; // от 0.9 до 1.1 (±10%)
 
         // Создаем базовые параметры кроны с вариациями
         std::vector<std::pair<float, float>> variedCrownLevels = {

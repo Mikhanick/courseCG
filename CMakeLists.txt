@@ -65,6 +65,7 @@ set(HEADERS
     city/strategies/SmartBuildingSelector.h
     city/objects/BuildingModel.h
     city/objects/RoadEnums.h
+    GlobalRandom.h
 )
 
 # Добавляем исполняемый файл

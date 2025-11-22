@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <stdexcept>
 #include <QtMath>
+#include <random>  // For std::mt19937
+#include "../../GlobalRandom.h"  // Include global random functionality
 
 using namespace City;
 
@@ -38,11 +40,14 @@ SmartBuildingSelector::SmartBuildingSelector(const QString& modelsDir) {
                  << "| Fixed scale:" << model.fixedScale;
     }
 
-    randomEngine.seed(std::random_device{}());
+    randomEngine.seed(randomSeed);
+    updateRandomGenerators(randomSeed);  // Ensure global generator is initialized too
 }
 
 void SmartBuildingSelector::setSeed(unsigned int seed) {
-    randomEngine.seed(seed);
+    randomSeed = seed;  // Update the global seed
+    updateRandomGenerators(seed);  // Update global generator
+    randomEngine.seed(randomSeed);  // Update local engine
 }
 
 QSizeF SmartBuildingSelector::getBaseDimensions(const FloorSection& section) const {
