@@ -88,10 +88,14 @@ BuildingModel SmartBuildingSelector::chooseBestModel(const QSizeF& availableSize
     // Сначала ищем модели с фиксированным масштабом, которые помещаются
     for (const auto& model : availableModels) {
         if (model.fixedScale) {
-            QSizeF baseSize = getBaseDimensions(model.groundFloor);
-            if (baseSize.width() <= availableSize.width() &&
-                baseSize.height() <= availableSize.height()) {
-                suitableModels.push_back(model);
+            // Для фиксированных моделей проверяем, вписываются ли доступные размеры в допустимый диапазон модели
+            // т.е. доступная ширина должна быть >= minWidth и <= maxWidth модели
+            // и доступная глубина должна быть >= minDepth и <= maxDepth модели
+            if (availableSize.width() >= model.minWidth &&
+                availableSize.width() <= model.maxWidth &&
+                availableSize.height() >= model.minDepth &&
+                availableSize.height() <= model.maxDepth) {
+                    suitableModels.push_back(model);
             }
         }
     }
@@ -109,10 +113,15 @@ BuildingModel SmartBuildingSelector::chooseBestModel(const QSizeF& availableSize
         }
     }
 
-    // Если все еще нет подходящих - берем все модели
+    // Если все еще нет подходящих - ищем хотя бы частично подходящие модели
     if (suitableModels.empty()) {
-        // suitableModels = availableModels;
-        qDebug() << "WARNING: No perfectly fitting models.";
+        // Проверяем, есть ли модели, которые хотя бы минимальные размеры имеют
+        for (const auto& model : availableModels) {
+            if (availableSize.width() >= model.minWidth &&
+                availableSize.height() >= model.minDepth) {
+                suitableModels.push_back(model);
+            }
+        }
     }
 
     if (suitableModels.empty()) {
@@ -145,12 +154,13 @@ BuildingModel SmartBuildingSelector::chooseBestModel(const QSizeF& availableSize
     // Случайный выбор из моделей с максимальной площадью
     std::uniform_int_distribution<size_t> dist(0, largestModels.size() - 1);
     return largestModels[dist(randomEngine)];
+
 }GraphicObject SmartBuildingSelector::buildFromModel(
     const BuildingModel& model,
     const QSizeF& availableSize) const
 {
     GraphicObject result;
-    const float margin = 2.5f;
+    const float margin = 0.f;
     float startX = margin;
     float startZ = margin;
 

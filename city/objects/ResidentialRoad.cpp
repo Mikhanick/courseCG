@@ -25,16 +25,16 @@ float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
-    const float edgeBuffer = 13.0f;    // Отступ от концов дороги
+    const float edgeBuffer = 18.0f;    // Отступ от концов дороги
     const float sideMargin = 9.0f;    // Отступ от края дороги по ширине
 
     // Глубина участков теперь случайная между минимум и максимум
-    const float minPlotDepth = 20.0f;  // Минимальная глубина участка
+    const float minPlotDepth = 15.0f;  // Минимальная глубина участка
     const float maxPlotDepth = 50.0f;  // Максимальная глубина участка
 
     // Гибкие параметры ширины участков (вдоль дороги)
-    const float minPlotWidth = 14.0f; // Минимальная ширина (для узких таунхаусов)
-    const float maxPlotWidth = 70.0f; // Максимальная ширина (для длинных домов/особняков)
+    const float minPlotWidth = 12.0f; // Минимальная ширина (для узких таунхаусов)
+    const float maxPlotWidth = 73.0f; // Максимальная ширина (для длинных домов/особняков)
 
     float roadLength = getLength();
     float buildableStart = edgeBuffer;
@@ -94,8 +94,8 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
             isFirstPlot = false;
 
             // 6. СЛУЧАЙНЫЙ ПРОМЕЖУТОК
-            float minGap = 5.5f;
-            float maxGap = 12.0f;
+            float minGap = 7.5f;
+            float maxGap = 16.0f;
             float gap = minGap + randFloat() * (maxGap - minGap);
 
             currentPos += plotWidth + gap;
@@ -110,8 +110,7 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
 
     // 1. Позиция вдоль дороги (X): сохраняем центрирование
     float alongRoadCenter = plot.x() + (plot.width() - buildingSize.x()) / 2.0f;
-    QVector3D basePosition = m_start + direction * alongRoadCenter;
-
+    
     // 2. ПОЗИЦИЯ ПО ГЛУБИНЕ: ВЫРАВНИВАНИЕ ПО ПЕРЕДНЕЙ КРОМКЕ
     float perpendicularOffset;
     if (isLeftSide) {
@@ -121,8 +120,9 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
         // RIGHT: фасад начинается на КОНЦЕ участка (ближайшая к дороге точка)
         perpendicularOffset = plot.y() + plot.height();
     }
-
+    
     // 3. Финальная позиция (без центрирования по глубине!)
+    QVector3D basePosition = m_start + direction * alongRoadCenter;
     QVector3D position = basePosition + baseNormal * perpendicularOffset;
     position.setY(buildingSize.y() / 2.0f); // Центр по высоте
 
@@ -589,9 +589,9 @@ std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
         // Позиция вдоль дороги
         QVector3D basePosition = m_start + direction * positionAlongRoad;
 
-        // Создаем вариации геометрических размеров для дерева (±10%)
+        // Создаем вариации геометрических размеров для дерева (±20%)
         std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-        float sizeVariation = 0.9f + dist(globalRandomGenerator) * 0.2f; // от 0.9 до 1.1 (±10%)
+        float sizeVariation = 0.8f + dist(globalRandomGenerator) * 0.4f; 
 
         // Создаем базовые параметры кроны с вариациями
         std::vector<std::pair<float, float>> variedCrownLevels = {

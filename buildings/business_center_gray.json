@@ -6,10 +6,10 @@
         "version": "2.5"
     },
     "dimensions": {
-        "min_width": 30.0,
-        "max_width": 50.0,
-        "min_depth": 20.0,
-        "max_depth": 30.0,
+        "min_width": 52.0,
+        "max_width": 70.0,
+        "min_depth": 35.0,
+        "max_depth": 60.0,
         "min_height_per_floor": 3.5,
         "max_height_per_floor": 4.0,
         "fixed_scale": true
