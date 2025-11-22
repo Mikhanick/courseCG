@@ -24,7 +24,7 @@ public:
 
     // Размещение зданий - пустая реализация, не размещает здания
     void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const override;
-    QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize) const override;
+    QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide = true) const override;
     QVector3D calculateNormal() const override;
 
     // Экспорт

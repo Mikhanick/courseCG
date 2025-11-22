@@ -32,7 +32,7 @@ public:
 
     // Размещение зданий
     virtual void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const = 0;
-    virtual QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize) const = 0;
+    virtual QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide = true) const = 0;
     virtual QVector3D calculateNormal() const = 0;
 
     // Экспорт

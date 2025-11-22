@@ -23,21 +23,21 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(1920,1200, QImage::Format_RGB32) {
-    setFixedSize(1920,1200);
+    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
+    setFixedSize(800, 600);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
-    m_yaw = 100.0f;
+    m_yaw = 220.0f;
     m_pitch = -15.0f;
 
     // Increase base movement speed by 9x total (3x previous increase + another 3x)
-    m_moveSpeed = 2.f; // Was 0.3f (0.1f * 3 * 3)
+    m_moveSpeed = 2.5f; // Was 0.3f (0.1f * 3 * 3)
     m_rotateSpeed = 0.5f;
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(1920,1200); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
 
     m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.9, 0.3)));
     GenerateCityWithMap(); // Use the new city map generation
@@ -136,7 +136,7 @@ void MainWindow::GenerateCityWithMap() {
             tile->AddPoint(QVector3D(x, 0, maxZ));        // 3: левый-передний
 
             // Цвет земли — зелёный
-            QColor greenColor(235, 245, 255); // ForestGreen
+            QColor greenColor(235, 245, 255); // Snow
             // QColor greenColor(34, 139, 34); // ForestGreen
 
             // Грани тайла (исправленный порядок для правильного отображения сверху)

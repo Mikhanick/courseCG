@@ -3,6 +3,9 @@
 
 #include "../core/AbstractRoad.h"
 #include <QVector3D>
+#include <vector>
+#include <utility>
+#include <QtGui/QColor>
 
 namespace City {
 
@@ -24,7 +27,7 @@ public:
 
     // Размещение зданий
     void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const override;
-    QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize) const override;
+    QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide = true) const override;
     QVector3D calculateNormal() const override;
 
     // Экспорт
@@ -41,6 +44,13 @@ public:
 
     // Prototype pattern - clone method
     std::unique_ptr<AbstractRoad> clone() const override;
+
+    // Function to generate a tree with crown polygons
+    GraphicObject generateTree(int numVertices, const std::vector<std::pair<float, float>>& crownLevels,
+                               const QColor& downColor, const QColor& upColor) const;
+
+    // Function to generate trees along the road
+    std::vector<GraphicObject> generateTreesAlongRoad() const;
 
 private:
     QVector3D m_start;

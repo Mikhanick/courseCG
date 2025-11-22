@@ -31,28 +31,19 @@ void CityMap::placeBuildingsOnRoads() {
         std::vector<std::pair<QRectF, int>> plots;
         road->divideIntoPlots(plots);
 
-        if (plots.empty()) continue;
-
-        for (auto& [area, plotCount] : plots) {
+        for (auto& [area, plotSideInfo] : plots) {
             GraphicObject building = m_buildingSelector->select(area);
-
-            // Using the new getDimensions method to get the actual building dimensions
             QVector2D dimensions = building.getDimensions();
-            QVector3D size(dimensions.x(), 0, dimensions.y()); // x = length, y = height (not used for positioning), z = depth
+            QVector3D size(dimensions.x(), 0, dimensions.y());
 
-            QVector3D globalPos = road->calculateGlobalPosition(area, size);
+            bool isLeftSide = (plotSideInfo == 1); // 1=LEFT, 0=RIGHT
+            QVector3D globalPos = road->calculateGlobalPosition(area, size, isLeftSide);
+            
+            // 3. Правильная нормаль: ДЛЯ ПРАВОЙ СТОРОНЫ ИНВЕРТИРУЕМ
             QVector3D norm = road->calculateNormal();
-
-            // To center the building in its plot, we need to offset the position to account for
-            // the building's dimensions since placeAt uses the building's local (0,0,0) as reference
-            // The building is initially positioned with (0,0,0) as the corner, so we need to move it
-            // to center it within its allocated plot
-            QVector3D dir = (road->getEnd() - road->getStart()).normalized();
-            QVector3D perp = QVector3D::crossProduct(QVector3D(0, 1, 0), dir).normalized(); // perpendicular to road direction
-
-            // Adjust global position to center the building in its plot
-            // Move by half of each dimension in the appropriate directions
-            globalPos = globalPos - (norm * size.z() / 2.0f) - (dir * size.x() / 2.0f);
+            if (!isLeftSide) { // RIGHT side
+                norm = -norm; // Теперь norm смотрит НА ДОРОГУ для обеих сторон
+            }
 
             building.placeAt(globalPos, norm);
             building.ComputeFaceNormals();

@@ -27,7 +27,7 @@ void BlockSeparatorRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& pl
 }
 
 QVector3D BlockSeparatorRoad::calculateGlobalPosition(
-    const QRectF& plot, const QVector3D& buildingSize) const
+    const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide) const
 {
     // Возвращаем нулевую позицию, так как не используется
     return QVector3D(0, 0, 0);

@@ -8,6 +8,16 @@
 
 namespace City {
 
+// Вспомогательная функция для генерации детерминированных случайных значений
+float deterministicRandom(const QVector3D& start, const QVector3D& end, int seed = 0) {
+    float val = std::abs(start.x() * 1000.0f +
+                        start.z() * 100.0f +
+                        end.x() * 10.0f +
+                        end.z() * 1.0f +
+                        seed);
+    return std::fmod(val, 10000.0f) / 10000.0f;
+}
+
 ResidentialRoad::ResidentialRoad(const QVector3D& start, const QVector3D& end, float width)
     : m_start(start), m_end(end), m_width(width)
 {
@@ -24,42 +34,37 @@ float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();
     const float edgeBuffer = 10.0f;    // Отступ от концов дороги
-    const float sideMargin = 5.0f;    // Отступ от края дороги по ширине
-    const float plotDepth = 40.0f;    // Фиксированная глубина всех участков
-    
+    const float sideMargin = 9.0f;    // Отступ от края дороги по ширине
+
+    // Глубина участков теперь случайная между минимум и максимум
+    const float minPlotDepth = 25.0f;  // Минимальная глубина участка
+    const float maxPlotDepth = 50.0f;  // Максимальная глубина участка
+
     // Гибкие параметры ширины участков (вдоль дороги)
     const float minPlotWidth = 25.0f; // Минимальная ширина (для узких таунхаусов)
     const float maxPlotWidth = 70.0f; // Максимальная ширина (для длинных домов/особняков)
-    
+
     float roadLength = getLength();
     float buildableStart = edgeBuffer;
     float buildableEnd = roadLength - edgeBuffer;
-    
+
     if (buildableEnd <= buildableStart + minPlotWidth) return;
-    
+
     // Определяем стороны застройки
     std::vector<BuildingSide> sides;
-    if (m_buildingSide == BuildingSide::BOTH) 
+    if (m_buildingSide == BuildingSide::BOTH)
         sides = {BuildingSide::LEFT, BuildingSide::RIGHT};
-    else if (m_buildingSide != BuildingSide::NONE) 
+    else if (m_buildingSide != BuildingSide::NONE)
         sides = {m_buildingSide};
-    
+
     // Детерминированный генератор случайных чисел
     auto randFloat = [this](int idx) -> float {
-        float val = std::abs(m_start.x() * 1000.0f + 
-                           m_start.z() * 100.0f + 
-                           m_end.x() * 10.0f + 
-                           m_end.z() * 1.0f + 
-                           idx);
-        return std::fmod(val, 10000.0f) / 10000.0f;
+        return deterministicRandom(m_start, m_end, idx);
     };
 
     for (size_t sideIdx = 0; sideIdx < sides.size(); ++sideIdx) {
         BuildingSide side = sides[sideIdx];
-        float y_offset = (side == BuildingSide::LEFT) 
-                         ? sideMargin 
-                         : -(sideMargin + plotDepth);
-        
+
         float currentPos = buildableStart;
         int randBase = static_cast<int>(sideIdx * 1000);
         bool isFirstPlot = true; // Для пропуска первого участка
@@ -70,64 +75,64 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
 
             // 1. СЛУЧАЙНАЯ ШИРИНА УЧАСТКА (независимо от типа здания)
             float plotWidth = minPlotWidth + randFloat(randBase++) * (maxPlotWidth - minPlotWidth);
-            
-            // 2. ОГРАНИЧЕНИЕ ПОД ОСТАВШЕЕСЯ ПРОСТРАНСТВО
+
+            // 2. СЛУЧАЙНАЯ ГЛУБИНА УЧАСТКА
+            float plotDepth = minPlotDepth + randFloat(randBase++) * (maxPlotDepth - minPlotDepth);
+
+            // 3. ОГРАНИЧЕНИЕ ПОД ОСТАВШЕЕСЯ ПРОСТРАНСТВО
             if (currentPos + plotWidth > buildableEnd) {
                 plotWidth = buildableEnd - currentPos;
                 if (plotWidth < minPlotWidth * 0.8f) break; // Минимум 80% от минимального
             }
-            
-            // 3. ВЫБОР ТИПА ЗДАНИЯ (НЕЗАВИСИМО ОТ РАЗМЕРА!)
-            int plotType = 1; // Стандартный дом по умолчанию
-            
-            // 40% шанс таунхауса в городской зоне
-            if (roadLength < 150.0f && randFloat(randBase++) < 0.4f) {
-                plotType = 3; // Таунхаус (может быть как узким, так и длинным!)
-            } 
-            // 20% шанс особняка в пригороде
-            else if (roadLength >= 150.0f && randFloat(randBase++) < 0.2f) {
-                plotType = 2; // Особняк
-            }
-            
-            // 4. ПРОПУСКАЕМ ПЕРВЫЙ УЧАСТОК НА КАЖДОЙ СТОРОНЕ
+
+            // 4. РАСЧЕТ СМЕЩЕНИЯ ДЛЯ ТЕКУЩЕГО УЧАСТКА
+            float y_offset = (side == BuildingSide::LEFT)
+                             ? sideMargin
+                             : -(sideMargin + plotDepth);
+
+            // 5. ПРОПУСКАЕМ ПЕРВЫЙ УЧАСТОК НА КАЖДОЙ СТОРОНЕ
             if (!isFirstPlot) {
+                // Используем enum-значения для обозначения стороны
+                int sideInfo = (side == BuildingSide::LEFT) ? 1 : 0; // 1 для левой, 0 для правой стороны
                 plots.emplace_back(
                     QRectF(currentPos, y_offset, plotWidth, plotDepth),
-                    plotType
+                    sideInfo
                 );
             }
             isFirstPlot = false;
-            
-            // 5. СЛУЧАЙНЫЙ ПРОМЕЖУТОК (независимо от типа здания)
-            float minGap = (plotType == 3) ? 0.5f : 1.5f; // Таунхаусы - меньше промежутки
-            float maxGap = (plotType == 3) ? 2.0f : 6.0f;
+
+            // 6. СЛУЧАЙНЫЙ ПРОМЕЖУТОК
+            float minGap = 1.5f;
+            float maxGap = 6.0f;
             float gap = minGap + randFloat(randBase++) * (maxGap - minGap);
-            
+
             currentPos += plotWidth + gap;
         }
     }
 }
-
 QVector3D ResidentialRoad::calculateGlobalPosition(
-    const QRectF& plot, const QVector3D& buildingSize) const
+    const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide) const
 {
-    // 1. Вычисляем направление дороги и нормаль один раз
     QVector3D direction = (m_end - m_start).normalized();
-    QVector3D normal = calculateNormal();
+    QVector3D baseNormal = calculateNormal(); // Направлена ВЛЕВО от дороги
 
-    // 2. Центр здания ВДОЛЬ дороги (по X в локальных координатах участка)
-    float alongRoadCenter = plot.x() + plot.width() / 2.0f;
+    // 1. Позиция вдоль дороги (X): сохраняем центрирование
+    float alongRoadCenter = plot.x() + (plot.width() - buildingSize.x()) / 2.0f;
     QVector3D basePosition = m_start + direction * alongRoadCenter;
 
-    // 3. Центр здания ПЕРПЕНДИКУЛЯРНО дороге (по Z в локальных координатах)
-    // plot.y() - расстояние от края дороги до начала участка
-    // plot.height() - глубина участка
-    // buildingSize.z - глубина здания (важно для центрирования)
-    float perpendicularOffset = plot.y() + (plot.height() - buildingSize.z()) / 2.0f;
+    // 2. ПОЗИЦИЯ ПО ГЛУБИНЕ: ВЫРАВНИВАНИЕ ПО ПЕРЕДНЕЙ КРОМКЕ
+    float perpendicularOffset;
+    if (isLeftSide) {
+        // LEFT: фасад начинается на начале участка (ближайшая к дороге точка)
+        perpendicularOffset = plot.y();
+    } else {
+        // RIGHT: фасад начинается на КОНЦЕ участка (ближайшая к дороге точка)
+        perpendicularOffset = plot.y() + plot.height();
+    }
 
-    // 4. Финальная позиция с центрированием по высоте
-    QVector3D position = basePosition + normal * perpendicularOffset;
-    position.setY(buildingSize.y() / 2.0f); // Центр по высоте для правильного вращения
+    // 3. Финальная позиция (без центрирования по глубине!)
+    QVector3D position = basePosition + baseNormal * perpendicularOffset;
+    position.setY(buildingSize.y() / 2.0f); // Центр по высоте
 
     return position;
 }
@@ -185,6 +190,23 @@ GraphicObject ResidentialRoad::getRoadMesh() const {
 
     // Добавляем шестиугольные окончания дороги (с перпендикулярной линией перед ними)
     addHexagonalEndings(road, direction, normal, roadHeight);
+
+    // Добавляем деревья вдоль дороги
+    std::vector<GraphicObject> trees = generateTreesAlongRoad();
+    for (auto& tree : trees) {
+        int basePointIdx = road.points.size();
+        int baseFaceIdx = road.faces.size();
+
+        // Добавляем точки дерева
+        for (const auto& point : tree.points) {
+            road.AddPoint(point);
+        }
+
+        // Добавляем грани дерева с правильной индексацией
+        for (const auto& face : tree.faces) {
+            road.AddFace(basePointIdx + face.index0, basePointIdx + face.index1, basePointIdx + face.index2, face.color);
+        }
+    }
 
     return road;
 }
@@ -389,6 +411,219 @@ void ResidentialRoad::addRoundedEndingAtPosition(GraphicObject& road, const QVec
         // Добавляем треугольник: центр - текущая точка - следующая точка
         road.AddFace(centerIdx, currentIdx, nextIdx, QColor(100, 100, 100)); // серый цвет для жилой дороги
     }
+}
+
+GraphicObject ResidentialRoad::generateTree(int numVertices, const std::vector<std::pair<float, float>>& crownLevels, const QColor& downColor, const QColor& upColor) const {
+    GraphicObject tree;
+
+    // Цвет ствола
+    QColor trunkColor(139, 69, 19); // Коричневый цвет для ствола
+
+    if (crownLevels.empty() || numVertices < 3) {
+        return tree;
+    }
+
+    // Добавляем вершины для ствола (цилиндр)
+    float trunkRadius = crownLevels[0].second * 0.2f; // Радиус ствола - 20% от радиуса нижнего кольца кроны
+    float trunkHeight = crownLevels[0].first; // Высота ствола - до нижнего кольца кроны
+
+    const int trunkSides = 8; // Количество сторон для цилиндрического ствола
+    std::vector<std::vector<int>> trunkLevels; // Уровни вершин ствола
+
+    // Создаем два уровня для ствола: низ (y=0) и верх (y=trunkHeight)
+    std::vector<int> bottomTrunkIndices;
+    std::vector<int> topTrunkIndices;
+
+    for (int i = 0; i < trunkSides; ++i) {
+        float angle = 2.0f * M_PI * i / trunkSides;
+        float x = trunkRadius * cos(angle);
+        float z = trunkRadius * sin(angle);
+
+        // Нижний круг ствола (основание)
+        int bottomIdx = tree.points.size();
+        tree.AddPoint(QVector3D(x, 0.0f, z));
+        bottomTrunkIndices.push_back(bottomIdx);
+
+        // Верхний круг ствола
+        int topIdx = tree.points.size();
+        tree.AddPoint(QVector3D(x, trunkHeight, z));
+        topTrunkIndices.push_back(topIdx);
+    }
+    trunkLevels.push_back(bottomTrunkIndices);
+    trunkLevels.push_back(topTrunkIndices);
+
+    // Создаем боковые поверхности ствола
+    for (int i = 0; i < trunkSides; ++i) {
+        int current = trunkLevels[1][i]; // верхний уровень
+        int next = trunkLevels[1][(i + 1) % trunkSides];
+        int bottomCurrent = trunkLevels[0][i]; // нижний уровень
+        int bottomNext = trunkLevels[0][(i + 1) % trunkSides];
+
+        // Треугольники для боковой поверхности ствола
+        tree.AddFace(bottomCurrent, next, current, trunkColor); // треугольник 1
+        tree.AddFace(bottomCurrent, bottomNext, next, trunkColor); // треугольник 2
+    }
+
+    // Создаем крону дерева
+    std::vector<std::vector<int>> crownLevelsIndices; // Индексы вершин для каждого уровня кроны
+
+    for (const auto& level : crownLevels) {
+        float height = level.first;
+        float radius = level.second;
+
+        std::vector<int> levelIndices;
+        for (int i = 0; i < numVertices; ++i) {
+            float angle = 2.0f * M_PI * i / numVertices;
+            float x = radius * cos(angle);
+            float z = radius * sin(angle);
+
+            int idx = tree.points.size();
+            tree.AddPoint(QVector3D(x, height, z));
+            levelIndices.push_back(idx);
+        }
+        crownLevelsIndices.push_back(levelIndices);
+    }
+
+    // Создаем боковые поверхности кроны
+    for (size_t level = 0; level < crownLevelsIndices.size() - 1; ++level) {
+        const auto& currentLevel = crownLevelsIndices[level];
+        const auto& nextLevel = crownLevelsIndices[level + 1];
+
+        // Проверяем, уменьшается ли радиус (верхняя нормаль) или увеличивается (нижняя нормаль)
+        float currentRadius = crownLevels[level].second;
+        float nextRadius = crownLevels[level + 1].second;
+
+        for (int i = 0; i < numVertices; ++i) {
+            int currIdx = currentLevel[i];
+            int nextIdx = currentLevel[(i + 1) % numVertices];
+            int upperCurrIdx = nextLevel[i];
+            int upperNextIdx = nextLevel[(i + 1) % numVertices];
+
+            if (nextRadius <= currentRadius) {
+                // Если радиус уменьшается, нормали смотрят наружу (вверх) - используем upColor
+                tree.AddFace(currIdx, nextIdx, upperCurrIdx, upColor);      // треугольник 1
+                tree.AddFace(nextIdx, upperNextIdx, upperCurrIdx, upColor); // треугольник 2
+            } else {
+                // Если радиус увеличивается, нормали смотрят внутрь (вниз) - используем downColor
+                tree.AddFace(currIdx, nextIdx, upperCurrIdx, downColor);      // треугольник 1
+                tree.AddFace(nextIdx, upperNextIdx, upperCurrIdx, downColor); // треугольник 2
+            }
+        }
+    }
+
+    // Создаем верхушку кроны (замыкаем верхний уровень)
+    if (!crownLevelsIndices.empty()) {
+        const auto& topLevel = crownLevelsIndices.back();
+
+        // Создаем центральную вершину для верха
+        int topCenterIdx = tree.points.size();
+        float topHeight = crownLevels.back().first;
+        tree.AddPoint(QVector3D(0.0f, topHeight, 0.0f));
+
+        // Треугольники, соединяющие верхний уровень с центром
+        for (int i = 0; i < numVertices; ++i) {
+            int currIdx = topLevel[i];
+            int nextIdx = topLevel[(i + 1) % numVertices];
+
+            tree.AddFace(currIdx, nextIdx, topCenterIdx, upColor);
+        }
+    }
+
+    // Создаем нижнюю часть кроны (замыкаем нижний уровень со стволом)
+    if (!crownLevelsIndices.empty()) {
+        const auto& bottomLevel = crownLevelsIndices[0];
+
+        // Соединяем нижний уровень кроны с верхним уровнем ствола
+        for (int i = 0; i < numVertices; ++i) {
+            int crownIdx = bottomLevel[i];
+            int nextCrownIdx = bottomLevel[(i + 1) % numVertices];
+            int trunkIdx = trunkLevels[1][i]; // верхний уровень ствола
+            int nextTrunkIdx = trunkLevels[1][(i + 1) % trunkSides]; // следующий индекс ствола
+
+            // Для соединения кроны со стволом (нормали вниз)
+            tree.AddFace(crownIdx, nextTrunkIdx, nextCrownIdx, downColor);
+            tree.AddFace(crownIdx, trunkIdx, nextTrunkIdx, downColor);
+        }
+    }
+
+    return tree;
+}
+
+std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
+    std::vector<GraphicObject> trees;
+
+    // Проверяем длину дороги
+    float roadLength = getLength();
+    if (roadLength < 40.0f) { // Если дорога короче 40 метров, деревья не ставим
+        return trees;
+    }
+
+    // Определяем направление дороги
+    QVector3D direction = (m_end - m_start).normalized();
+    QVector3D normal = calculateNormal(); // Направление влево от дороги
+
+    // Параметры для размещения деревьев
+    const float treeSpacing = 10.0f; // Расстояние между деревьями: 10 метров
+    const float edgeBuffer = 10.0f;  // Отступ от начала и конца: 20 метров
+    const float treeOffset = m_width / 2.0f + 2.0f; // Отступ от края дороги
+
+    // Вычисляем диапазон, где можно размещать деревья
+    float startPlacement = edgeBuffer;
+    float endPlacement = roadLength - edgeBuffer;
+
+    // Рассчитываем количество позиций для деревьев
+    int numTreePositions = static_cast<int>((endPlacement - startPlacement) / treeSpacing);
+    if (numTreePositions <= 0) {
+        return trees;
+    }
+
+    // Определяем параметры дерева (можно сделать параметрами функции в будущем)
+    int numVertices = 8; // Восьмиугольник для кроны
+    std::vector<std::pair<float, float>> crownLevels = {
+        {3.0f, 1.5f},
+        {4.0f, 2.0f},
+        {5.0f, 2.3f},
+        {7.0f, 2.4f},
+        {10.0f, 1.5f},
+        {15.f, 0.3f}
+    };
+    QColor downColor("#bf7c00"); // Зеленый цвет для нижних граней (RGB: 34, 139, 34 - лесной зеленый)
+    QColor upColor("#efe4c6");     // Темно-зеленый для верхних граней (RGB: 0, 100, 0 - темно-зеленый)
+
+    // Размещаем деревья с обеих сторон дороги
+    for (int i = 3; i < numTreePositions; ++i) {
+        float positionAlongRoad = startPlacement + i * treeSpacing;
+
+        // Позиция вдоль дороги
+        QVector3D basePosition = m_start + direction * positionAlongRoad;
+
+        // Создаем вариации геометрических размеров для дерева (±10%)
+        float sizeVariation = 0.9f + deterministicRandom(m_start, m_end, i * 100) * 0.2f; // от 0.9 до 1.1 (±10%)
+
+        // Создаем базовые параметры кроны с вариациями
+        std::vector<std::pair<float, float>> variedCrownLevels = {
+            {3.0f * sizeVariation, 1.5f * sizeVariation},
+            {4.0f * sizeVariation, 2.0f * sizeVariation},
+            {5.0f * sizeVariation, 2.3f * sizeVariation},
+            {7.0f * sizeVariation, 2.4f * sizeVariation},
+            {10.0f * sizeVariation, 1.5f * sizeVariation},
+            {15.0f * sizeVariation, 0.3f * sizeVariation}
+        };
+
+        // Левые деревья (относительно направления от start к end)
+        QVector3D leftTreePos = basePosition + normal * treeOffset;
+        GraphicObject leftTree = generateTree(numVertices, variedCrownLevels, downColor, upColor);
+        leftTree.placeAt(leftTreePos, normal);
+        trees.push_back(std::move(leftTree));
+
+        // Правые деревья (относительно направления от start к end)
+        QVector3D rightTreePos = basePosition - normal * treeOffset;
+        GraphicObject rightTree = generateTree(numVertices, variedCrownLevels, downColor, upColor);
+        rightTree.placeAt(rightTreePos, -normal);
+        trees.push_back(std::move(rightTree));
+    }
+
+    return trees;
 }
 
 } // namespace City

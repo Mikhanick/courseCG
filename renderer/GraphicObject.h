@@ -2,6 +2,7 @@
 #include <vector>
 #include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
+#include <QtGui/QColor>
 #include "Face.h"
 
 class GraphicObject {
