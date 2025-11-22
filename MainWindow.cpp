@@ -18,12 +18,13 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 // Include for global random functionality
 #include "GlobalRandom.h"
 
 // Global random seed variable definition
-unsigned int randomSeed = 12345; // Default seed value
+unsigned int randomSeed = 29; // Default seed value
 
 // Global random number generator definition
 std::mt19937 globalRandomGenerator(randomSeed);
@@ -47,7 +48,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_pitch = -15.0f;
 
     // Increase base movement speed by 9x total (3x previous increase + another 3x)
-    m_moveSpeed = 2.5f; // Was 0.3f (0.1f * 3 * 3)
+    m_moveSpeed = 3.5f; // Was 0.3f (0.1f * 3 * 3)
     m_rotateSpeed = 0.5f;
 
     m_scene = std::make_unique<Scene>();
@@ -133,22 +134,65 @@ void MainWindow::GenerateCity(int gridSize) {
 }
 
 void MainWindow::GenerateCityWithMap() {
+    // Создание генератора города с использованием новых классов
+    auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>();
+    auto buildingSelector = std::make_unique<City::SmartBuildingSelector>("/drive_d/Documents/CG_curs/program/buildings");
+    // auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
+
+    m_cityMap = std::make_unique<City::CityMap>(
+        std::move(roadGen),
+        std::move(buildingSelector)
+    );
+
+    m_cityMap->generate(600000.0f);
+    qDebug() << "Передано в отрисовку";
+    // Добавление объектов из карты города в сцену
+    auto objects = m_cityMap->exportToScene();
+
+    // Calculate the extent of the city to determine ground size
+    float minX = std::numeric_limits<float>::max();
+    float minZ = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxZ = std::numeric_limits<float>::lowest();
+
+    // Calculate bounds for all city objects
+    for (const auto& cityObj : objects) {
+        for (const auto& point : cityObj.points) {
+            minX = std::min(minX, point.x());
+            minZ = std::min(minZ, point.z());
+            maxX = std::max(maxX, point.x());
+            maxZ = std::max(maxZ, point.z());
+        }
+    }
+
+    // If no objects were found, use a default size
+    if (objects.empty()) {
+        minX = minZ = -50.0f;
+        maxX = maxZ = 50.0f;
+    } else {
+        // Add some margin around the city
+        const float margin = 20.0f;
+        minX -= margin;
+        maxX += margin;
+        minZ -= margin;
+        maxZ += margin;
+    }
+
     // Создание земли — зелёный квадрат под весь город, состоящий из меньших полигонов
-    const float groundSize = 1000.0f; // Увеличенный размер для удлинненной дороги
     const float tileSize = 10.0f; // Размер одного тайла земли
-    
+
     // Создаем сетку из меньших квадратов вместо одного большого полигона
-    for (float x = -groundSize; x < groundSize; x += tileSize) {
-        for (float z = -groundSize; z < groundSize; z += tileSize) {
+    for (float x = minX; x < maxX; x += tileSize) {
+        for (float z = minZ; z < maxZ; z += tileSize) {
             auto tile = new GraphicObject();
-            float maxX = qMin(x + tileSize, groundSize);
-            float maxZ = qMin(z + tileSize, groundSize);
-            
+            float maxX_tile = qMin(x + tileSize, maxX);
+            float maxZ_tile = qMin(z + tileSize, maxZ);
+
             // Вершины тайла (квадрат в плоскости Y=0)
             tile->AddPoint(QVector3D(x, 0, z));           // 0: левый-задний
-            tile->AddPoint(QVector3D(maxX, 0, z));        // 1: правый-задний
-            tile->AddPoint(QVector3D(maxX, 0, maxZ));     // 2: правый-передний
-            tile->AddPoint(QVector3D(x, 0, maxZ));        // 3: левый-передний
+            tile->AddPoint(QVector3D(maxX_tile, 0, z));   // 1: правый-задний
+            tile->AddPoint(QVector3D(maxX_tile, 0, maxZ_tile)); // 2: правый-передний
+            tile->AddPoint(QVector3D(x, 0, maxZ_tile));   // 3: левый-передний
 
             // Цвет земли — зелёный
             QColor greenColor(235, 245, 255); // Snow
@@ -163,22 +207,7 @@ void MainWindow::GenerateCityWithMap() {
         }
     }
 
-    // Создание генератора города с использованием новых классов
-    auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>(); 
-    auto buildingSelector = std::make_unique<City::SmartBuildingSelector>("/drive_d/Documents/CG_curs/program/buildings");
-    // auto buildingSelector = std::make_unique<City::SimpleBuildingSelector>();
-
-    m_cityMap = std::make_unique<City::CityMap>(
-        std::move(roadGen),
-        std::move(buildingSelector)
-    );
-
-    m_cityMap->generate(600000.0f);
-    qDebug() << "Передано в отрисовку";
-    // Добавление объектов из карты города в сцену
-    auto objects = m_cityMap->exportToScene();
-    
-    // Objects are already properly constructed with computed normals, add them directly
+    // Now add the actual city objects to the main scene
     for (auto& cityObj : objects) {
         auto* newObj = new GraphicObject();
         newObj->points = std::move(cityObj.points);
