@@ -31,10 +31,10 @@ float DirectionalLight::ComputeShadowFactor(
     }
 
     float storedDepth = shadowZBuffer->At(static_cast<int>(x), static_cast<int>(y));
-    const float bias = 0.00001f;
+    const float bias = 0.0001f;
 
     if (depth > storedDepth + bias) {
-        return 0.4f; // тень = 0.4f (было 0.1f — но у тебя в комментарии 0.1, а в коде 0.4 — оставил 0.4)
+        return 0.4f; // тень = 0.4f
     }
     return 1.0f;
 }

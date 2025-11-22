@@ -12,6 +12,45 @@ Renderer::Renderer(int width, int height)
     // Буферы пока не создаём — сделаем это при первом Render
 }
 
+void Renderer::SetShadowMapSize(int width, int height) {
+    m_shadowMapWidth = width;
+    m_shadowMapHeight = height;
+    // This will cause shadow buffers to be recreated on next render with new size
+    shadowZBuf.clear(); // Clear existing shadow buffers to force recreation
+}
+
+void Renderer::UpdateShadowBuffers(const Scene& scene) {
+    // Clear existing shadow buffers
+    shadowZBuf.clear();
+
+    // Calculate orthographic projection bounds based on scene extents
+    float minX, minZ, maxX, maxZ;
+    scene.getSceneExtent(minX, minZ, maxX, maxZ);
+
+    // Add some margin around the scene for proper shadow coverage
+    const float margin = 500.0f;  // Additional margin for shadows
+    float orthoLeft = minX + margin;
+    float orthoRight = maxX + margin;
+    float orthoBottom = minZ + margin;
+    float orthoTop = maxZ + margin;
+    float orthoNear = -1000.0f;
+    float orthoFar = 10000.0f;  // Keep far plane large enough to cover the scene
+    qDebug() << orthoRight << orthoLeft << orthoTop << orthoBottom;
+    auto ortho_proj = std::make_unique<OrthographicProjection>(
+        -orthoRight, orthoLeft + 100, -orthoTop, orthoBottom, orthoNear, orthoFar
+    );
+
+    // Recreate shadow buffers with updated projection for each light
+    for (auto &light: scene.lights)
+    {
+        shadowZBuf.push_back(light->CreateShadowZBuffer(m_shadowMapWidth, m_shadowMapHeight, ortho_proj->Clone())); // 46340 максимально
+
+        // Render the scene from light's perspective to update shadow map
+        ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
+        RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
+    }
+}
+
 void Renderer::EnsureBuffers(const Scene& scene) {
     if (!scene.camera) return;
 
@@ -36,11 +75,27 @@ void Renderer::EnsureBuffers(const Scene& scene) {
             m_width, m_height, scene.camera, m_projection->Clone()
             );
 
-        auto ortho_proj = std::make_unique<OrthographicProjection>(-500, 500, -500, 500, 0.f, 5000.f);
-         // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
+        // Calculate orthographic projection bounds based on scene extents
+        float minX, minZ, maxX, maxZ;
+        scene.getSceneExtent(minX, minZ, maxX, maxZ);
+
+        // Add some margin around the scene for proper shadow coverage
+        const float margin = 50.0f;  // Additional margin for shadows
+        float orthoLeft = minX - margin;
+        float orthoRight = maxX + margin;
+        float orthoBottom = minZ - margin;
+        float orthoTop = maxZ + margin;
+        float orthoNear = 0.0f;
+        float orthoFar = 5000.0f;  // Keep far plane large enough to cover the scene
+
+        auto ortho_proj = std::make_unique<OrthographicProjection>(
+            orthoLeft, orthoRight, orthoBottom, orthoTop, orthoNear, orthoFar
+        );
+
+        // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
         for (auto &light: scene.lights)
         {
-            shadowZBuf.push_back(light->CreateShadowZBuffer(10000, 10000, ortho_proj->Clone())); // 46340 максимально
+            shadowZBuf.push_back(light->CreateShadowZBuffer(m_shadowMapWidth, m_shadowMapHeight, ortho_proj->Clone())); // 46340 максимально
 
             ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
             RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
@@ -83,7 +138,7 @@ void Renderer::WriteToImage(QImage& image) {
     //         float depth = shadowZBuf[0]->At(x, y); // Получаем значение глубины
     //         // Преобразуем глубину в оттенок серого: 0.0 -> белый (255), 1.0 -> чёрный (0)
     //         // Можно инвертировать, если хочешь: чем ближе — тем темнее
-    //         int gray = qBound(0, (int)((1.0f - depth) * 200000055.0f), 255);
+    //         int gray = qBound(0, (int)((1.0f - depth) * 200000000055.0f), 255);
 
     //         // Устанавливаем пиксель как оттенок серого
     //         image.setPixel(x, y, qRgb(gray, gray, gray));

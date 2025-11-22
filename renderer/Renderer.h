@@ -17,6 +17,10 @@ class Renderer
     float m_near = 0.1f;
     float m_far = 1500.0f;
 
+    // Shadow map dimensions - initially set to default size
+    int m_shadowMapWidth = 10000;
+    int m_shadowMapHeight = 10000;
+
     std::unique_ptr<ZBuffer> m_zBuffer;
     std::unique_ptr<ColorBuffer> m_colorBuffer;
     std::unique_ptr<ShadeBuffer> m_shadeBuffer;
@@ -27,6 +31,14 @@ class Renderer
 public:
     Renderer(int width, int height);
     void Render(const Scene &scene, QImage &image);
+
+    // Methods to get and set shadow map size (for runtime adjustment)
+    void SetShadowMapSize(int width, int height);
+    int GetShadowMapWidth() const { return m_shadowMapWidth; }
+    int GetShadowMapHeight() const { return m_shadowMapHeight; }
+
+    // Method to update shadow buffers based on scene extent (for runtime adjustment)
+    void UpdateShadowBuffers(const Scene& scene);
 
 private:
     void EnsureBuffers(const Scene &scene);

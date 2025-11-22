@@ -39,8 +39,8 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(800, 600, QImage::Format_RGB32) {
-    setFixedSize(800, 600);
+    : QMainWindow(parent), m_image(2880, 1800, QImage::Format_RGB32) {
+    setFixedSize(2880, 1800);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -53,11 +53,11 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(800, 600); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(2880, 1800); // ➤ инициализируем рендерер
 
-    m_scene->AddLight(new DirectionalLight(QVector3D(1, 0.9, 0.3)));
+    m_scene->AddLight(new DirectionalLight(QVector3D(-0.3, 0.2, -0.3)));
     GenerateCityWithMap(); // Use the new city map generation
-
+    m_renderer->UpdateShadowBuffers(*m_scene.get());
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);
     m_timer.start(16);
 }
@@ -144,7 +144,7 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(600000.0f);
+    m_cityMap->generate(2000000.0f);
     qDebug() << "Передано в отрисовку";
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
