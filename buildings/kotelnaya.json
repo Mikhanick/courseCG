@@ -7,9 +7,9 @@
     },
     "dimensions": {
         "min_width": 12.0,
-        "max_width": 20.0,
+        "max_width": 16.0,
         "min_depth": 10.0,
-        "max_depth": 22.0,
+        "max_depth": 18.0,
         "fixed_scale": true
     },
     "floors": {

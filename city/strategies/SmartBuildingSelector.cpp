@@ -133,28 +133,9 @@ BuildingModel SmartBuildingSelector::chooseBestModel(const QSizeF& availableSize
         throw std::runtime_error("No building models available");
     }
 
-    // Находим модели с максимальной площадью (или максимальной длиной/шириной)
-    std::vector<BuildingModel> largestModels;
-    float maxArea = -1.0f;
-
-    for (const auto& model : suitableModels) {
-        QSizeF baseSize = getBaseDimensions(model.groundFloor);
-        float area = baseSize.width() * baseSize.height();
-
-        if (area > maxArea) {
-            maxArea = area;
-            largestModels.clear();
-            largestModels.push_back(model);
-        } else if (qFuzzyCompare(area, maxArea)) {
-            // Добавляем модели с одинаковой площадью для случайного выбора
-            largestModels.push_back(model);
-        }
-    }
-
-    // Случайный выбор из моделей с максимальной площадью
-    std::uniform_int_distribution<size_t> dist(0, largestModels.size() - 1);
-    return largestModels[dist(randomEngine)];
-
+    // Случайный выбор из подходящих моделей (вместо выбора по наибольшей площади)
+    std::uniform_int_distribution<size_t> dist(0, suitableModels.size() - 1);
+    return suitableModels[dist(randomEngine)];
 }GraphicObject SmartBuildingSelector::buildFromModel(
     const BuildingModel& model,
     const QSizeF& availableSize) const

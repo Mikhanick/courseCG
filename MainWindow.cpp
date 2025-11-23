@@ -144,7 +144,7 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(100000.0f);
+    m_cityMap->generate(1000000.0f);
     qDebug() << "Передано в отрисовку";
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
