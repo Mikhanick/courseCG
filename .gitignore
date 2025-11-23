@@ -8,6 +8,7 @@ moc_*.h
 qrc_*.cpp
 ui_*.h
 *.prl
+.qt/
 
 # Build directories
 build/
@@ -18,6 +19,7 @@ obj/
 *.dylib
 *.dll
 *.exe
+__pycache__
 
 # CMake files
 CMakeFiles/
