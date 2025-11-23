@@ -17,6 +17,9 @@ class Renderer
     float m_near = 0.1f;
     float m_far = 1500.0f;
 
+    // Flag to force buffer recreation (useful when FOV changes)
+    bool m_forceBufferRecreation = false;
+
     // Shadow map dimensions - initially set to default size
     int m_shadowMapWidth = 30000;
     int m_shadowMapHeight = 30000;
@@ -27,6 +30,11 @@ class Renderer
     std::unique_ptr<ProjectionStrategy> m_projection;
 
     std::vector<std::unique_ptr<ZBuffer>> shadowZBuf;
+
+    // Light multipliers for final rendering (instead of absolute color values)
+    float m_lightRedMultiplier = 1.0f;
+    float m_lightGreenMultiplier = 1.0f;
+    float m_lightBlueMultiplier = 1.0f;
 
 public:
     Renderer(int width, int height);
@@ -39,6 +47,20 @@ public:
 
     // Method to update shadow buffers based on scene extent (for runtime adjustment)
     void UpdateShadowBuffers(const Scene& scene);
+
+    // Methods to get and set FOV
+    void SetFOV(float fov) { m_fov = fov; m_forceBufferRecreation = true; }  // Force recreation when FOV changes
+    float GetFOV() const { return m_fov; }
+
+    // Method to force buffer recreation (useful when parameters like FOV change)
+    void ForceBufferRecreation() { m_forceBufferRecreation = true; }
+
+    // Methods to set light multipliers
+    void SetLightMultipliers(float red, float green, float blue) {
+        m_lightRedMultiplier = red;
+        m_lightGreenMultiplier = green;
+        m_lightBlueMultiplier = blue;
+    }
 
 private:
     void EnsureBuffers(const Scene &scene);

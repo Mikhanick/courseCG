@@ -4,6 +4,7 @@
 #include <QWheelEvent>
 #include <QKeyEvent>
 #include <QTimer>
+#include <QDockWidget>
 #include "renderer/Scene.h"
 #include "renderer/Renderer.h"
 #include "renderer/Camera.h"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "ControlPanel.h"
 
 // Include for global random functionality
 #include "GlobalRandom.h"
@@ -40,8 +42,8 @@ using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
-    setFixedSize(1920, 1200);
     setWindowTitle("Software Renderer - City Generator");
+    resize(1600, 1200);  // Set a reasonable initial size that accommodates the dock widget
 
     m_cameraPos = QVector3D(40, 15, -11);
     m_yaw = 220.0f;
@@ -55,14 +57,49 @@ MainWindow::MainWindow(QWidget* parent)
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
     m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
 
-    m_scene->AddLight(new DirectionalLight(QVector3D(-0.3, 0.2, -0.3)));
+    m_scene->AddLight(new DirectionalLight(QVector3D(-0.3, 0.2, -0.3), QColor(255, 255, 255)));
     GenerateCityWithMap(); // Use the new city map generation
     m_renderer->UpdateShadowBuffers(*m_scene.get());
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);
     m_timer.start(16);
+
+    SetupUI();
+
+    // Initialize timing for FPS calculation
+    m_lastFrameTime = std::chrono::high_resolution_clock::now();
 }
 
 MainWindow::~MainWindow() = default;
+
+void MainWindow::SetupUI() {
+    // Create and setup the control dock
+    m_controlDock = new QDockWidget("Controls", this);
+    m_controlDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
+    m_controlPanel = new ControlPanel();
+    m_controlDock->setWidget(m_controlPanel);
+    addDockWidget(Qt::RightDockWidgetArea, m_controlDock);
+
+    // Connect control panel signals to MainWindow slots
+    connect(m_controlPanel, &ControlPanel::lightDirectionChanged,
+            this, &MainWindow::OnLightDirectionChanged);
+    connect(m_controlPanel, &ControlPanel::lightMultipliersChanged,
+            this, &MainWindow::OnLightMultipliersChanged);
+    connect(m_controlPanel, &ControlPanel::mapSizeChanged,
+            this, &MainWindow::OnMapSizeChanged);
+    connect(m_controlPanel, &ControlPanel::seedChanged,
+            this, &MainWindow::OnSeedChanged);
+    connect(m_controlPanel, &ControlPanel::renderQualityChanged,
+            this, &MainWindow::OnResolutionChanged);
+    connect(m_controlPanel, &ControlPanel::cameraFOVChanged,
+            this, &MainWindow::OnCameraFOVChanged);
+    connect(m_controlPanel, &ControlPanel::regenerateMapRequested,
+            this, &MainWindow::OnRegenerateMapRequested);
+
+    // Initialize control values based on current state
+    m_controlPanel->setFocus(); // Allow the main window to receive keyboard events
+}
+
 void MainWindow::GenerateCity(int gridSize) {
     float spacing = 3.0f;
     float minHeight = 1.0f;
@@ -134,6 +171,9 @@ void MainWindow::GenerateCity(int gridSize) {
 }
 
 void MainWindow::GenerateCityWithMap() {
+    // Update random seed with current value
+    updateRandomGenerators(m_currentSeed);
+
     // Создание генератора города с использованием новых классов
     auto roadGen = std::make_unique<City::SubdivisionRoadGenerationStrategy>();
     auto buildingSelector = std::make_unique<City::SmartBuildingSelector>("/drive_d/Documents/CG_curs/program/buildings");
@@ -144,7 +184,7 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(1000000.0f);
+    m_cityMap->generate(static_cast<float>(m_mapSize));
     qDebug() << "Передано в отрисовку";
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
@@ -217,6 +257,14 @@ void MainWindow::GenerateCityWithMap() {
 }
 
 void MainWindow::RenderScene() {
+    // Check if we need to adjust the image size based on render resolution
+    int targetWidth = m_renderWidth;
+    int targetHeight = m_renderHeight;
+
+    if (m_image.width() != targetWidth || m_image.height() != targetHeight) {
+        m_image = QImage(targetWidth, targetHeight, QImage::Format_RGB32);
+    }
+
     m_renderer->Render(*m_scene, m_image); // ➤ вызываем метод рендерера
     update();
 }
@@ -246,13 +294,45 @@ void MainWindow::UpdateCamera() {
 }
 
 void MainWindow::OnTimeout() {
+    // Calculate FPS - measure time between frames
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    double frameTime = std::chrono::duration<double, std::milli>(currentTime - m_lastFrameTime).count();
+
+    m_frameCount++;
+    double timePassed = std::chrono::duration<double>(currentTime - m_lastFrameTime).count();
+
+    // Update FPS every second or so
+    if (timePassed > 0.5) {  // Update every half second for smoother display
+        m_fps = m_frameCount / timePassed;
+        m_frameCount = 0;
+        m_lastFrameTime = currentTime;
+
+        // Update the control panel with FPS
+        if (m_controlPanel) {
+            m_controlPanel->updateFPS(m_fps);
+        }
+    }
+
     UpdateCamera();
+
+    // Record render start time to calculate actual render time
+    auto renderStartTime = std::chrono::high_resolution_clock::now();
     RenderScene();
+
+    // Calculate actual render time
+    auto renderEndTime = std::chrono::high_resolution_clock::now();
+    m_renderTime = std::chrono::duration<double, std::milli>(renderEndTime - renderStartTime).count();
+
+    // Update the control panel with render time (after render is done)
+    if (m_controlPanel) {
+        m_controlPanel->updateRenderTime(m_renderTime);
+    }
 }
 
 void MainWindow::paintEvent(QPaintEvent* /*event*/) { // ✅ игнорируем
     QPainter painter(this);
-    painter.drawImage(rect(), m_image);
+    // Scale the image to fit the window while maintaining aspect ratio
+    painter.drawImage(rect(), m_image.scaled(rect().size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void MainWindow::mousePressEvent(QMouseEvent* event) {
@@ -296,4 +376,116 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_A) m_keyA = false;
     if (event->key() == Qt::Key_D) m_keyD = false;
     if (event->key() == Qt::Key_Shift) m_keyShift = false;
+}
+
+void MainWindow::OnLightDirectionChanged(const QVector3D& direction) {
+    UpdateLightDirection(direction);
+    // Update shadow buffers since we changed the light direction
+    m_renderer->UpdateShadowBuffers(*m_scene);
+    //RenderScene();
+}
+
+void MainWindow::OnLightMultipliersChanged(const QVector3D& multipliers) {
+    UpdateLightMultipliers(multipliers);
+    RenderScene();
+}
+
+void MainWindow::OnMapSizeChanged(int size) {
+    m_mapSize = size;
+    // Regenerate the scene when map size changes
+    RegenerateScene();
+}
+
+void MainWindow::OnSeedChanged(unsigned int seed) {
+    m_currentSeed = seed;
+    // Regenerate the scene when seed changes
+    RegenerateScene();
+}
+
+void MainWindow::OnResolutionChanged(int width, int height) {
+    m_renderWidth = width;
+    m_renderHeight = height;
+    // Update renderer resolution with free resolution
+    float currentFOV = m_renderer->GetFOV();
+
+    m_renderer = std::make_unique<Renderer>(width, height);
+    m_renderer->SetFOV(currentFOV); // Restore the FOV setting
+
+    // The scene remains unchanged, just the renderer resolution changes
+    // Render the scene with the new resolution
+    RenderScene();
+}
+
+void MainWindow::OnCameraFOVChanged(float fov) {
+    // Limit minimum FOV to 10 as requested
+    m_cameraFOV = qMax(10.0f, fov);
+    m_renderer->SetFOV(m_cameraFOV);
+    // Force buffer recreation since FOV change affects projection
+    m_renderer->ForceBufferRecreation();
+    // Render the scene with the new FOV
+    RenderScene();
+}
+
+void MainWindow::OnRegenerateMapRequested() {
+    RegenerateScene();
+}
+
+void MainWindow::UpdateLightDirection(const QVector3D& direction) {
+    if (!m_scene->lights.empty()) {
+        // Since we only have one light, update its direction
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
+            dirLight->SetDirection(direction);
+            dirLight->MarkShadowMapDirty();
+        }
+    }
+}
+
+void MainWindow::UpdateLightColor(QRgb color) {
+    if (!m_scene->lights.empty()) {
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
+            // For light multipliers, we can still use RGB values to represent multipliers
+            // where 255 maps to 1.0 (no change), but we can scale them as needed
+            dirLight->SetColor(QColor(qRed(color), qGreen(color), qBlue(color)));
+            // Mark light as dirty to trigger shadow map updates if needed
+            dirLight->MarkShadowMapDirty();
+        }
+    }
+}
+
+void MainWindow::RegenerateScene() {
+    // Clear current scene objects but keep camera
+    m_scene->objects.clear();
+
+    // Update the random seed
+    updateRandomGenerators(m_currentSeed);
+
+    // Re-generate the city with new parameters
+    GenerateCityWithMap();
+
+    // Update shadow buffers since we might have changed the light direction
+    if (!m_scene->lights.empty()) {
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
+            dirLight->MarkShadowMapDirty();
+        }
+    }
+    m_renderer->UpdateShadowBuffers(*m_scene.get());
+
+    // Render the scene again
+    RenderScene();
+}
+
+void MainWindow::UpdateLightMultipliers(const QVector3D& multipliers) {
+    // Store the multipliers in the renderer
+    if (m_renderer) {
+        m_renderer->SetLightMultipliers(multipliers.x(), multipliers.y(), multipliers.z());
+    }
+
+    // Update the scene if needed
+    if (!m_scene->lights.empty()) {
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
+            // Update the light color to white (or keep existing color) since
+            // the multipliers are now handled separately
+            dirLight->MarkShadowMapDirty();
+        }
+    }
 }

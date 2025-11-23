@@ -21,6 +21,9 @@ set(CMAKE_AUTORCC ON)
 set(SOURCES
     main.cpp
     MainWindow.cpp
+    ControlPanel.cpp
+    LightDirectionControl.cpp
+    ColorControlWidget.cpp
     renderer/GraphicObject.cpp
     renderer/DirectionalLight.cpp
     renderer/TriangleRasterizer.cpp
@@ -38,6 +41,9 @@ set(SOURCES
 
 set(HEADERS
     MainWindow.h
+    ControlPanel.h
+    LightDirectionControl.h
+    ColorControlWidget.h
     renderer/Face.h
     renderer/GraphicObject.h
     renderer/Light.h

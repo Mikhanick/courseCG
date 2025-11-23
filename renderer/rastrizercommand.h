@@ -164,8 +164,7 @@ public:
                 shadowFactor = 0.35f;
             } else if (shadowZBuffer) {
                 shadowFactor = light->ComputeShadowFactor(frag.worldPos,
-                                                          shadowZBuffer,
-                                                          light->GetCamera().get());
+                                                          shadowZBuffer);
             }
 
             float shade = fmin(NdotL, shadowFactor);

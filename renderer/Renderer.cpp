@@ -6,6 +6,7 @@
 #include <QtGui/QColor>
 #include "rastrizercommand.h"
 #include <vector>
+#include "DirectionalLight.h"
 
 Renderer::Renderer(int width, int height)
     : m_width(width), m_height(height) {
@@ -46,7 +47,8 @@ void Renderer::UpdateShadowBuffers(const Scene& scene) {
         shadowZBuf.push_back(light->CreateShadowZBuffer(m_shadowMapWidth, m_shadowMapHeight, ortho_proj->Clone())); // 46340 максимально
 
         // Render the scene from light's perspective to update shadow map
-        ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
+        auto *curShZBuf = shadowZBuf.rbegin()->get();
+        ZBufferRasterCommand zBufCmd(curShZBuf);
         RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
     }
 }
@@ -55,11 +57,13 @@ void Renderer::EnsureBuffers(const Scene& scene) {
     if (!scene.camera) return;
 
     // Проверяем, нужно ли пересоздать буферы (если размеры изменились или камера/проекция)
-    bool needRecreate = !m_zBuffer ||
+    bool needRecreate = m_forceBufferRecreation ||  // Check force recreation flag
+                        !m_zBuffer ||
                         m_zBuffer->GetWidth() != m_width ||
                         m_zBuffer->GetHeight() != m_height;
 
     if (needRecreate) {
+        m_forceBufferRecreation = false;  // Reset the flag after forced recreation
         m_projection = std::make_unique<PerspectiveProjection>(
             m_fov, (float)m_width / m_height, m_near, m_far
             );
@@ -74,32 +78,6 @@ void Renderer::EnsureBuffers(const Scene& scene) {
         m_shadeBuffer = std::make_unique<ShadeBuffer>(
             m_width, m_height, scene.camera, m_projection->Clone()
             );
-
-        // Calculate orthographic projection bounds based on scene extents
-        float minX, minZ, maxX, maxZ;
-        scene.getSceneExtent(minX, minZ, maxX, maxZ);
-
-        // Add some margin around the scene for proper shadow coverage
-        const float margin = 50.0f;  // Additional margin for shadows
-        float orthoLeft = minX - margin;
-        float orthoRight = maxX + margin;
-        float orthoBottom = minZ - margin;
-        float orthoTop = maxZ + margin;
-        float orthoNear = 0.0f;
-        float orthoFar = 5000.0f;  // Keep far plane large enough to cover the scene
-
-        auto ortho_proj = std::make_unique<OrthographicProjection>(
-            orthoLeft, orthoRight, orthoBottom, orthoTop, orthoNear, orthoFar
-        );
-
-        // auto ortho_proj = std::make_unique<PerspectiveProjection>(120);
-        for (auto &light: scene.lights)
-        {
-            shadowZBuf.push_back(light->CreateShadowZBuffer(m_shadowMapWidth, m_shadowMapHeight, ortho_proj->Clone())); // 46340 максимально
-
-            ZBufferRasterCommand zBufCmd(shadowZBuf.rbegin()->get());
-            RenderScene(scene, zBufCmd, light->GetCamera()->GetPosition(), false);
-        }
     }
 
     // Очищаем буферы перед рендерингом
@@ -112,6 +90,25 @@ void Renderer::Render(const Scene &scene, QImage &image)
 {
     if (!scene.camera)
         return;
+
+    // Get the light multipliers from the first light source to apply to the final rendering
+    // For now, using a simple approach where we store RGB multipliers directly
+    // In a complete implementation, the multipliers might be passed differently
+    m_lightRedMultiplier = 1.0f;
+    m_lightGreenMultiplier = 1.0f;
+    m_lightBlueMultiplier = 1.0f;
+
+    if (!scene.lights.empty()) {
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(scene.lights[0].get())) {
+            QColor lightColor = dirLight->GetColor();
+            // Use the color components as multipliers, but scale so that 255 (full RGB) = 1.0 multiplier
+            // To allow values > 1.0, we can scale by a factor (e.g., allowing up to 2.0x multiplier)
+            // For now use direct normalized values (0.0-1.0), but this can be adjusted for higher multipliers
+            m_lightRedMultiplier = lightColor.redF();
+            m_lightGreenMultiplier = lightColor.greenF();
+            m_lightBlueMultiplier = lightColor.blueF();
+        }
+    }
 
     EnsureBuffers(scene);
 
@@ -131,31 +128,19 @@ void Renderer::WriteToImage(QImage& image) {
         image = QImage(m_width, m_height, QImage::Format_RGB32);
     }
 
-
-    // #pragma omp parallel for collapse(2)
-    // for (int y = 0; y < m_height; ++y) {
-    //     for (int x = 0; x < m_width; ++x) {
-    //         float depth = shadowZBuf[0]->At(x, y); // Получаем значение глубины
-    //         // Преобразуем глубину в оттенок серого: 0.0 -> белый (255), 1.0 -> чёрный (0)
-    //         // Можно инвертировать, если хочешь: чем ближе — тем темнее
-    //         int gray = qBound(0, (int)((1.0f - depth) * 200000000055.0f), 255);
-
-    //         // Устанавливаем пиксель как оттенок серого
-    //         image.setPixel(x, y, qRgb(gray, gray, gray));
-    //     }
-    // }
     #pragma omp parallel for collapse(2)
     for (int y = 0; y < m_height; ++y) {
         for (int x = 0; x < m_width; ++x) {
             int idx = y * m_width + x;
             float shade = m_shadeBuffer->shadeData[idx];
             QColor c = m_colorBuffer->colorData[idx];
-            c = QColor(
-                qBound(0, (int)(c.red() * shade * 1.3), 255),
-                qBound(0, (int)(c.green() * shade * 1.1), 255),
-                qBound(0, (int)(c.blue() * shade * 1.f), 255)
-                );
-            image.setPixel(x, y, qRgb(c.red(), c.green(), c.blue()));
+
+            // Apply light multipliers and apply the shade value
+            int finalRed = qBound(0, (int)(c.red() * m_lightRedMultiplier * shade * 1.3), 255);
+            int finalGreen = qBound(0, (int)(c.green() * m_lightGreenMultiplier * shade * 1.1), 255);
+            int finalBlue = qBound(0, (int)(c.blue() * m_lightBlueMultiplier * shade * 1.0), 255);
+
+            image.setPixel(x, y, qRgb(finalRed, finalGreen, finalBlue));
         }
     }
 }

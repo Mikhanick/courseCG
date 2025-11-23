@@ -12,8 +12,7 @@ public:
     virtual QVector3D GetDirectionTo(const QVector3D& point) const = 0;
     virtual float ComputeShadowFactor(
         const QVector3D& worldPos,
-        const ZBuffer* shadowZBuffer,
-        const Camera* lightCamera
+        const ZBuffer* shadowZBuffer
     ) const = 0;
     virtual std::unique_ptr<ZBuffer> CreateShadowZBuffer(
         int width, int height,

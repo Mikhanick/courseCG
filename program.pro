@@ -9,6 +9,9 @@ QMAKE_LFLAGS += -fopenmp
 SOURCES += \
     main.cpp \
     MainWindow.cpp \
+    ControlPanel.cpp \
+    LightDirectionControl.cpp \
+    ColorControlWidget.cpp \
     renderer/GraphicObject.cpp \
     renderer/DirectionalLight.cpp \
     renderer/TriangleRasterizer.cpp \
@@ -17,13 +20,16 @@ SOURCES += \
     city/strategies/SubdivisionRoadGenerationStrategy.cpp \
     city/strategies/SimpleRoadGenerationStrategy.cpp \
     city/objects/ResidentialRoad.cpp \
-    city/objects/BuildingModel.cpp\
-    city/strategies/SimpleBuildingSelector.cpp\
-    city/loaders/ModelLoader.cpp\
+    city/objects/BuildingModel.cpp \
+    city/strategies/SimpleBuildingSelector.cpp \
+    city/loaders/ModelLoader.cpp \
     city/strategies/SmartBuildingSelector.cpp
 
 HEADERS += \
     MainWindow.h \
+    ControlPanel.h \
+    LightDirectionControl.h \
+    ColorControlWidget.h \
     renderer/Face.h \
     renderer/GraphicObject.h \
     renderer/Light.h \
@@ -40,18 +46,20 @@ HEADERS += \
     renderer/rastrizercommand.h \
     city/core/AbstractRoad.h \
     city/strategies/AbstractBuildingSelector.h \
-
     city/strategies/AbstractRoadGenerationStrategy.h \
     city/core/CityMap.h \
     city/strategies/SubdivisionRoadGenerationStrategy.h \
     city/strategies/SimpleRoadGenerationStrategy.h \
     city/objects/ResidentialRoad.h \
-
-    city/strategies/SimpleBuildingSelector.h\
-    city/loaders/ModelLoader.h\
-    city/strategies/SmartBuildingSelector.h\
-    city/objects/BuildingModel.h\
-    city/objects/RoadEnums.h\
+    city/strategies/SimpleBuildingSelector.h \
+    city/loaders/ModelLoader.h \
+    city/strategies/SmartBuildingSelector.h \
+    city/objects/BuildingModel.h \
+    city/objects/RoadEnums.h
 
 # Указываем путь к заголовкам
-INCLUDEPATH += renderer
+INCLUDEPATH += renderer \
+               city/core \
+               city/objects \
+               city/loaders \
+               city/strategies

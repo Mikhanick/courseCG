@@ -2,8 +2,8 @@
 #include "Camera.h"
 #include "ProjectionStrategy.h"
 
-DirectionalLight::DirectionalLight(const QVector3D& dir)
-    : direction(dir.normalized()) {}
+DirectionalLight::DirectionalLight(const QVector3D& dir, const QColor& lightColor)
+    : direction(dir.normalized()), color(lightColor) {}
 
 void DirectionalLight::SetDirection(const QVector3D& dir) {
     QVector3D newDir = dir.normalized();
@@ -19,10 +19,9 @@ QVector3D DirectionalLight::GetDirectionTo(const QVector3D& point) const {
 
 float DirectionalLight::ComputeShadowFactor(
     const QVector3D& worldPos,
-    const ZBuffer* shadowZBuffer,
-    const Camera* lightCamera
+    const ZBuffer* shadowZBuffer
     ) const {
-    if (!shadowZBuffer || !lightCamera) return 1.0f;
+    if (!shadowZBuffer) return 1.0f;
 
     float x, y, depth, w;  // ← ДОБАВЛЕНО: w
     // Передаём 4 параметра в Project
