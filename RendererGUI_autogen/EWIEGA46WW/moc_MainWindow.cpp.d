@@ -1,5 +1,6 @@
 /drive_d/Documents/CG_curs/program/RendererGUI_autogen/EWIEGA46WW/moc_MainWindow.cpp: /drive_d/Documents/CG_curs/program/MainWindow.h \
   /drive_d/Documents/CG_curs/program/RendererGUI_autogen/moc_predefs.h \
+  /drive_d/Documents/CG_curs/program/GlobalRandom.h \
   /usr/include/asm-generic/bitsperlong.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -210,6 +211,7 @@
   /usr/include/c++/15.2.1/optional \
   /usr/include/c++/15.2.1/pstl/execution_defs.h \
   /usr/include/c++/15.2.1/pstl/glue_numeric_defs.h \
+  /usr/include/c++/15.2.1/random \
   /usr/include/c++/15.2.1/stdexcept \
   /usr/include/c++/15.2.1/stdlib.h \
   /usr/include/c++/15.2.1/streambuf \

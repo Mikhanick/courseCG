@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Находим Qt5
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui)
 
 # Включаем автоматическую обработку MOC, UI и RCC файлов
 set(CMAKE_AUTOMOC ON)
@@ -72,7 +72,7 @@ set(HEADERS
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 # Подключаем необходимые модули Qt
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Widgets Qt5::Gui)
+target_link_libraries(${PROJECT_NAME} Qt6::Core Qt6::Widgets Qt6::Gui)
 
 # Подключаем OpenMP
 find_package(OpenMP REQUIRED)

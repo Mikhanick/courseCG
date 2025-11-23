@@ -29,12 +29,12 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
     const float sideMargin = 9.0f;    // Отступ от края дороги по ширине
 
     // Глубина участков теперь случайная между минимум и максимум
-    const float minPlotDepth = 15.0f;  // Минимальная глубина участка
-    const float maxPlotDepth = 50.0f;  // Максимальная глубина участка
+    const float minPlotDepth = 10.0f;  // Минимальная глубина участка
+    const float maxPlotDepth = 55.0f;  // Максимальная глубина участка
 
     // Гибкие параметры ширины участков (вдоль дороги)
-    const float minPlotWidth = 12.0f; // Минимальная ширина (для узких таунхаусов)
-    const float maxPlotWidth = 73.0f; // Максимальная ширина (для длинных домов/особняков)
+    const float minPlotWidth = 8.0f; // Минимальная ширина (для узких таунхаусов)
+    const float maxPlotWidth = 80.0f; // Максимальная ширина (для длинных домов/особняков)
 
     float roadLength = getLength();
     float buildableStart = edgeBuffer;
@@ -110,7 +110,7 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
 
     // 1. Позиция вдоль дороги (X): сохраняем центрирование
     float alongRoadCenter = plot.x() + (plot.width() - buildingSize.x()) / 2.0f;
-    
+
     // 2. ПОЗИЦИЯ ПО ГЛУБИНЕ: ВЫРАВНИВАНИЕ ПО ПЕРЕДНЕЙ КРОМКЕ
     float perpendicularOffset;
     if (isLeftSide) {
@@ -120,7 +120,7 @@ QVector3D ResidentialRoad::calculateGlobalPosition(
         // RIGHT: фасад начинается на КОНЦЕ участка (ближайшая к дороге точка)
         perpendicularOffset = plot.y() + plot.height();
     }
-    
+
     // 3. Финальная позиция (без центрирования по глубине!)
     QVector3D basePosition = m_start + direction * alongRoadCenter;
     QVector3D position = basePosition + baseNormal * perpendicularOffset;
@@ -199,7 +199,7 @@ GraphicObject ResidentialRoad::getRoadMesh() const {
             road.AddFace(basePointIdx + face.index0, basePointIdx + face.index1, basePointIdx + face.index2, face.color);
         }
     }
-
+    road.ComputeFaceNormals();
     return road;
 }
 
@@ -225,44 +225,6 @@ std::unique_ptr<AbstractRoad> ResidentialRoad::clone() const {
     return newRoad;
 }
 
-// Добавляем стоп-линии на концах дороги
-void ResidentialRoad::addStopLines(GraphicObject& road, const QVector3D& direction, const QVector3D& normal, float roadHeight) const {
-    float halfWidth = m_width / 2.0f;
-    const float stopLineWidth = 0.1f;  // Толщина стоп-линии
-    const float stopLineHeight = roadHeight + 0.01f; // Немного выше асфальта
-
-    // Стоп-линия в начале дороги
-    QVector3D startLeft = m_start - normal * halfWidth;
-    QVector3D startRight = m_start + normal * halfWidth;
-    QVector3D startLeftFront = startLeft + direction * stopLineWidth;
-    QVector3D startRightFront = startRight + direction * stopLineWidth;
-
-    int baseIdx = road.points.size();
-
-    road.AddPoint(QVector3D(startLeft.x(), stopLineHeight, startLeft.z()));      // 0
-    road.AddPoint(QVector3D(startRight.x(), stopLineHeight, startRight.z()));    // 1
-    road.AddPoint(QVector3D(startRightFront.x(), stopLineHeight, startRightFront.z())); // 2
-    road.AddPoint(QVector3D(startLeftFront.x(), stopLineHeight, startLeftFront.z()));   // 3
-
-    road.AddFace(baseIdx + 0, baseIdx + 1, baseIdx + 2, QColor(255, 255, 255)); // белый цвет
-    road.AddFace(baseIdx + 0, baseIdx + 2, baseIdx + 3, QColor(255, 255, 255));
-
-    // Стоп-линия в конце дороги
-    QVector3D endLeft = m_end - normal * halfWidth;
-    QVector3D endRight = m_end + normal * halfWidth;
-    QVector3D endLeftBack = endLeft - direction * stopLineWidth;
-    QVector3D endRightBack = endRight - direction * stopLineWidth;
-
-    baseIdx = road.points.size();
-
-    road.AddPoint(QVector3D(endLeftBack.x(), stopLineHeight, endLeftBack.z()));  // 0
-    road.AddPoint(QVector3D(endRightBack.x(), stopLineHeight, endRightBack.z())); // 1
-    road.AddPoint(QVector3D(endRight.x(), stopLineHeight, endRight.z()));         // 2
-    road.AddPoint(QVector3D(endLeft.x(), stopLineHeight, endLeft.z()));          // 3
-
-    road.AddFace(baseIdx + 0, baseIdx + 1, baseIdx + 2, QColor(255, 255, 255)); // белый цвет
-    road.AddFace(baseIdx + 0, baseIdx + 2, baseIdx + 3, QColor(255, 255, 255));
-}
 
 // Добавляем разметку посередине дороги
 void ResidentialRoad::addCenterMarkings(GraphicObject& road, const QVector3D& direction, const QVector3D& normal, float roadHeight) const {
@@ -332,10 +294,10 @@ void ResidentialRoad::addStopLineAndRoundedEnding(GraphicObject& road, const QVe
     QVector3D stopLineCenter = position;
     if (isStart) {
         // Для начала дороги - немного смещаем вперед
-        stopLineCenter = position + direction * (radius * 0.3f);
+        stopLineCenter = position + direction * (radius * 1.3f);
     } else {
         // Для конца дороги - немного смещаем назад
-        stopLineCenter = position - direction * (radius * 0.3f);
+        stopLineCenter = position - direction * (radius * 1.3f);
     }
 
     // Вычисляем боковые точки для стоп-линии (используем нормаль как боковой вектор)
@@ -537,7 +499,6 @@ GraphicObject ResidentialRoad::generateTree(int numVertices, const std::vector<s
             tree.AddFace(crownIdx, trunkIdx, nextTrunkIdx, downColor);
         }
     }
-
     return tree;
 }
 
@@ -579,8 +540,6 @@ std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
         {10.0f, 1.5f},
         {15.f, 0.3f}
     };
-    QColor downColor("#bf7c00"); // Зеленый цвет для нижних граней (RGB: 34, 139, 34 - лесной зеленый)
-    QColor upColor("#efe4c6");     // Темно-зеленый для верхних граней (RGB: 0, 100, 0 - темно-зеленый)
 
     // Размещаем деревья с обеих сторон дороги
     for (int i = 3; i < numTreePositions; ++i) {
@@ -591,7 +550,7 @@ std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
 
         // Создаем вариации геометрических размеров для дерева (±20%)
         std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-        float sizeVariation = 0.8f + dist(globalRandomGenerator) * 0.4f; 
+        float sizeVariation = 0.8f + dist(globalRandomGenerator) * 0.4f;
 
         // Создаем базовые параметры кроны с вариациями
         std::vector<std::pair<float, float>> variedCrownLevels = {
@@ -603,16 +562,42 @@ std::vector<GraphicObject> ResidentialRoad::generateTreesAlongRoad() const {
             {15.0f * sizeVariation, 0.3f * sizeVariation}
         };
 
+        // Генерируем случайные осенние цвета для дерева
+        // Основные осенние цвета: более мягкие оттенки красного, оранжевого, желтого
+        std::uniform_int_distribution<int> redDist(160, 220);    // Красный компонент (уменьшенный разброс)
+        std::uniform_int_distribution<int> greenDist(80, 150);   // Зеленый компонент (уменьшенный разброс)
+        std::uniform_int_distribution<int> blueDist(20, 60);     // Синий компонент (уменьшенный разброс)
+
+        // Генерируем базовый осенний цвет
+        int baseRed = redDist(globalRandomGenerator);
+        int baseGreen = greenDist(globalRandomGenerator);
+        int baseBlue = blueDist(globalRandomGenerator);
+
+        // Нижний цвет немного более насыщенный (меньше зеленого, больше красного)
+        int downRed = std::min(255, baseRed + 10);
+        int downGreen = std::max(0, baseGreen - 8);
+        int downBlue = baseBlue;
+
+        // Верхний цвет немного менее насыщенный (меньше красного, больше зеленого)
+        int upRed = std::max(0, baseRed - 8);
+        int upGreen = std::min(255, baseGreen + 8);
+        int upBlue = baseBlue;
+
+        QColor downColor(downRed, downGreen, downBlue); // Более насыщенный нижний цвет
+        QColor upColor(upRed, upGreen, upBlue);         // Менее насыщенный верхний цвет
+
         // Левые деревья (относительно направления от start к end)
         QVector3D leftTreePos = basePosition + normal * treeOffset;
         GraphicObject leftTree = generateTree(numVertices, variedCrownLevels, downColor, upColor);
         leftTree.placeAt(leftTreePos, normal);
+        leftTree.ComputeFaceNormals();
         trees.push_back(std::move(leftTree));
 
         // Правые деревья (относительно направления от start к end)
         QVector3D rightTreePos = basePosition - normal * treeOffset;
         GraphicObject rightTree = generateTree(numVertices, variedCrownLevels, downColor, upColor);
         rightTree.placeAt(rightTreePos, -normal);
+        rightTree.ComputeFaceNormals();
         trees.push_back(std::move(rightTree));
     }
 

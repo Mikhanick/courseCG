@@ -24,7 +24,7 @@
 #include "GlobalRandom.h"
 
 // Global random seed variable definition
-unsigned int randomSeed = 29; // Default seed value
+unsigned int randomSeed = 5; // Default seed value
 
 // Global random number generator definition
 std::mt19937 globalRandomGenerator(randomSeed);
@@ -39,8 +39,8 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(2880, 1800, QImage::Format_RGB32) {
-    setFixedSize(2880, 1800);
+    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
+    setFixedSize(1920, 1200);
     setWindowTitle("Software Renderer - City Generator");
 
     m_cameraPos = QVector3D(40, 15, -11);
@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_scene = std::make_unique<Scene>();
     m_scene->camera = std::make_shared<Camera>(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_renderer = std::make_unique<Renderer>(2880, 1800); // ➤ инициализируем рендерер
+    m_renderer = std::make_unique<Renderer>(1920, 1200); // ➤ инициализируем рендерер
 
     m_scene->AddLight(new DirectionalLight(QVector3D(-0.3, 0.2, -0.3)));
     GenerateCityWithMap(); // Use the new city map generation
@@ -144,7 +144,7 @@ void MainWindow::GenerateCityWithMap() {
         std::move(buildingSelector)
     );
 
-    m_cityMap->generate(2000000.0f);
+    m_cityMap->generate(100000.0f);
     qDebug() << "Передано в отрисовку";
     // Добавление объектов из карты города в сцену
     auto objects = m_cityMap->exportToScene();
@@ -195,8 +195,8 @@ void MainWindow::GenerateCityWithMap() {
             tile->AddPoint(QVector3D(x, 0, maxZ_tile));   // 3: левый-передний
 
             // Цвет земли — зелёный
-            QColor greenColor(235, 245, 255); // Snow
-            // QColor greenColor(34, 139, 34); // ForestGreen
+            // QColor greenColor(235, 245, 255); // Snow
+            QColor greenColor(34, 139, 34); // ForestGreen
 
             // Грани тайла (исправленный порядок для правильного отображения сверху)
             tile->AddFace(0, 2, 1, greenColor); // Изменен порядок точек для правильной нормали

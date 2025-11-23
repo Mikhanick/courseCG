@@ -59,7 +59,6 @@ private:
     BuildingSide m_buildingSide = BuildingSide::BOTH; // Default to both sides
 
     // Внутренние методы для добавления элементов дороги
-    void addStopLines(GraphicObject& road, const QVector3D& direction, const QVector3D& normal, float roadHeight) const;
     void addCenterMarkings(GraphicObject& road, const QVector3D& direction, const QVector3D& normal, float roadHeight) const;
     void addHexagonalEndings(GraphicObject& road, const QVector3D& direction, const QVector3D& normal, float roadHeight) const;
     void addStopLineAndRoundedEnding(GraphicObject& road, const QVector3D& position, const QVector3D& direction, const QVector3D& normal, float roadHeight, float radius, int sides, bool isStart) const;

@@ -18,8 +18,8 @@ class Renderer
     float m_far = 1500.0f;
 
     // Shadow map dimensions - initially set to default size
-    int m_shadowMapWidth = 10000;
-    int m_shadowMapHeight = 10000;
+    int m_shadowMapWidth = 30000;
+    int m_shadowMapHeight = 30000;
 
     std::unique_ptr<ZBuffer> m_zBuffer;
     std::unique_ptr<ColorBuffer> m_colorBuffer;
