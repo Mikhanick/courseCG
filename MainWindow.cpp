@@ -46,7 +46,7 @@ MainWindow::MainWindow(QWidget* parent)
     setWindowTitle("Software Renderer - City Generator");
     resize(1600, 1200);  // Set a reasonable initial size that accommodates the dock widget
 
-    m_cameraPos = QVector3D(40, 15, -11);
+    m_cameraPos = QVector3D(40, 65, -11);
     m_yaw = 220.0f;
     m_pitch = -15.0f;
 
@@ -64,6 +64,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(&m_timer, &QTimer::timeout, this, &MainWindow::OnTimeout);
     m_timer.start(16);
 
+    setFocusPolicy(Qt::StrongFocus); // Enable keyboard focus for main window
     SetupUI();
 
     // Initialize timing for FPS calculation
@@ -75,6 +76,7 @@ MainWindow::~MainWindow() = default;
 void MainWindow::SetupUI() {
     // Create the rendering widget and set it as the central widget
     m_renderingWidget = new RenderingWidget(this);
+    m_renderingWidget->setFocusPolicy(Qt::StrongFocus); // Make rendering widget accept focus and key events
     setCentralWidget(m_renderingWidget);
 
     // Create and setup the control dock
@@ -102,7 +104,29 @@ void MainWindow::SetupUI() {
             this, &MainWindow::OnRegenerateMapRequested);
 
     // Initialize control values based on current state
-    m_controlPanel->setFocus(); // Allow the main window to receive keyboard events
+    setFocus(); // Ensure main window has focus to receive key events after clicking on rendering area
+
+    // Initialize control panel with current values from renderer and scene
+    if (m_renderer) {
+        // Set light multipliers to control panel
+        QVector3D currentMultipliers(
+            m_renderer->GetLightRedMultiplier(),
+            m_renderer->GetLightGreenMultiplier(),
+            m_renderer->GetLightBlueMultiplier()
+        );
+        m_controlPanel->setMultipliers(currentMultipliers);
+    }
+
+    // Set other initial values
+    if (m_scene && !m_scene->lights.empty()) {
+        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
+            m_controlPanel->setLightDirection(dirLight->GetDirection());
+        }
+    }
+
+    // Set resolution and FOV values
+    m_controlPanel->setResolution(QPair<int, int>(m_renderWidth, m_renderHeight));
+    m_controlPanel->setCameraFOV(m_renderer ? m_renderer->GetFOV() : m_cameraFOV);
 }
 
 void MainWindow::GenerateCity(int gridSize) {
@@ -383,7 +407,8 @@ void MainWindow::OnLightDirectionChanged(const QVector3D& direction) {
     UpdateLightDirection(direction);
     // Update shadow buffers since we changed the light direction
     m_renderer->UpdateShadowBuffers(*m_scene);
-    //RenderScene();
+    // Render the scene to update with new light direction and shadows
+    RenderScene();
 }
 
 void MainWindow::OnLightMultipliersChanged(const QVector3D& multipliers) {
@@ -442,7 +467,6 @@ void MainWindow::UpdateLightColor(QRgb color) {
             // where 255 maps to 1.0 (no change), but we can scale them as needed
             dirLight->SetColor(QColor(qRed(color), qGreen(color), qBlue(color)));
             // Mark light as dirty to trigger shadow map updates if needed
-            dirLight->MarkShadowMapDirty();
         }
     }
 }
@@ -473,16 +497,12 @@ void MainWindow::UpdateLightMultipliers(const QVector3D& multipliers) {
     // Store the multipliers in the renderer
     if (m_renderer) {
         m_renderer->SetLightMultipliers(multipliers.x(), multipliers.y(), multipliers.z());
+        qDebug()<<"tut";
     }
 
-    // Update the scene if needed
-    if (!m_scene->lights.empty()) {
-        if (auto* dirLight = dynamic_cast<DirectionalLight*>(m_scene->lights[0].get())) {
-            // Update the light color to white (or keep existing color) since
-            // the multipliers are now handled separately
-            dirLight->MarkShadowMapDirty();
-        }
-    }
+
+    // Light multipliers don't affect shadow maps, so no need to mark them dirty
+    // The multipliers only affect the final color calculation in WriteToImage
 }
 
 void MainWindow::applyPendingResolutionChange() {
@@ -500,9 +520,21 @@ void MainWindow::applyPendingResolutionChange() {
         // Then force renderer to recreate its buffers with new resolution
         if (m_renderer && (m_renderWidth != oldWidth || m_renderHeight != oldHeight)) {
             float currentFOV = m_renderer->GetFOV();
+            float redMultiplier = m_renderer->GetLightRedMultiplier();  // Save current multipliers
+            float greenMultiplier = m_renderer->GetLightGreenMultiplier();
+            float blueMultiplier = m_renderer->GetLightBlueMultiplier();
+
+            // Create new renderer with new resolution
             m_renderer = std::make_unique<Renderer>(m_renderWidth, m_renderHeight);
             m_renderer->SetFOV(currentFOV);
+
+            // Restore the light multipliers in the new renderer
+            m_renderer->SetLightMultipliers(redMultiplier, greenMultiplier, blueMultiplier);
+
+            // Update shadow buffers to match new renderer configuration
+            m_renderer->UpdateShadowBuffers(*m_scene);
         }
+
     }
 }
 

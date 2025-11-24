@@ -25,6 +25,12 @@ public:
     QPair<int, int> getResolution() const;  // Returns width and height
     float getCameraFOV() const;
 
+    // Setters for initial values
+    void setLightDirection(const QVector3D& direction);
+    void setMultipliers(const QVector3D& multipliers);
+    void setResolution(const QPair<int, int>& resolution);
+    void setCameraFOV(float fov);
+
 signals:
     void lightDirectionChanged(const QVector3D& direction);
     void lightMultipliersChanged(const QVector3D& multipliers);  // Now represents multipliers

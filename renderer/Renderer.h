@@ -62,6 +62,11 @@ public:
         m_lightBlueMultiplier = blue;
     }
 
+    // Methods to get light multipliers
+    float GetLightRedMultiplier() const { return m_lightRedMultiplier; }
+    float GetLightGreenMultiplier() const { return m_lightGreenMultiplier; }
+    float GetLightBlueMultiplier() const { return m_lightBlueMultiplier; }
+
 private:
     void EnsureBuffers(const Scene &scene);
     void WriteToImage(QImage &image);

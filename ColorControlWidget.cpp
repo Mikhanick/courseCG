@@ -19,6 +19,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_redSpinBox = new QDoubleSpinBox();
     m_redSpinBox->setRange(0.0, 10.0);  // Allow multipliers up to 10.0
     m_redSpinBox->setDecimals(3);       // 3 decimal places for precision
+    m_redSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_redSpinBox->setValue(1.3);        // Initial value from the formula: * 1.3
     m_redSpinBox->setSuffix("x");
     // Connect to editingFinished instead of valueChanged to only emit when editing is complete
@@ -30,6 +31,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_greenSpinBox = new QDoubleSpinBox();
     m_greenSpinBox->setRange(0.0, 10.0);
     m_greenSpinBox->setDecimals(3);
+    m_greenSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_greenSpinBox->setValue(1.1);      // Initial value from the formula: * 1.1
     m_greenSpinBox->setSuffix("x");
     connect(m_greenSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
@@ -40,6 +42,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_blueSpinBox = new QDoubleSpinBox();
     m_blueSpinBox->setRange(0.0, 10.0);
     m_blueSpinBox->setDecimals(3);
+    m_blueSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_blueSpinBox->setValue(1.0);       // Initial value from the formula: * 1.0
     m_blueSpinBox->setSuffix("x");
     connect(m_blueSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),

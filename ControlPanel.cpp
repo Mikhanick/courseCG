@@ -146,6 +146,23 @@ float ControlPanel::getCameraFOV() const {
     return static_cast<float>(m_cameraFOVSlider->value());
 }
 
+void ControlPanel::setLightDirection(const QVector3D& direction) {
+    m_lightDirectionControl->setDirection(direction);
+}
+
+void ControlPanel::setMultipliers(const QVector3D& multipliers) {
+    m_lightColorControl->setMultipliers(multipliers);
+}
+
+void ControlPanel::setResolution(const QPair<int, int>& resolution) {
+    m_renderWidthSpinBox->setValue(resolution.first);
+    m_renderHeightSpinBox->setValue(resolution.second);
+}
+
+void ControlPanel::setCameraFOV(float fov) {
+    m_cameraFOVSlider->setValue(static_cast<int>(fov));
+}
+
 void ControlPanel::onLightDirectionChanged() {
     emit lightDirectionChanged(getLightDirection());
 }

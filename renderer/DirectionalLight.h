@@ -28,6 +28,7 @@ public:
     void MarkShadowMapClean() const { shadowMapDirty = false; }
     CameraPtr GetCamera() const override;
 
-    // Getter for light color
+    // Getter for light color and direction
     QColor GetColor() const { return color; }
+    QVector3D GetDirection() const { return direction; }  // Add getter for direction
 };
