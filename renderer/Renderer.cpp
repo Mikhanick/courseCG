@@ -91,25 +91,6 @@ void Renderer::Render(const Scene &scene, QImage &image)
     if (!scene.camera)
         return;
 
-    // Get the light multipliers from the first light source to apply to the final rendering
-    // For now, using a simple approach where we store RGB multipliers directly
-    // In a complete implementation, the multipliers might be passed differently
-    m_lightRedMultiplier = 1.0f;
-    m_lightGreenMultiplier = 1.0f;
-    m_lightBlueMultiplier = 1.0f;
-
-    if (!scene.lights.empty()) {
-        if (auto* dirLight = dynamic_cast<DirectionalLight*>(scene.lights[0].get())) {
-            QColor lightColor = dirLight->GetColor();
-            // Use the color components as multipliers, but scale so that 255 (full RGB) = 1.0 multiplier
-            // To allow values > 1.0, we can scale by a factor (e.g., allowing up to 2.0x multiplier)
-            // For now use direct normalized values (0.0-1.0), but this can be adjusted for higher multipliers
-            m_lightRedMultiplier = lightColor.redF();
-            m_lightGreenMultiplier = lightColor.greenF();
-            m_lightBlueMultiplier = lightColor.blueF();
-        }
-    }
-
     EnsureBuffers(scene);
 
     ZBufferRasterCommand zBufCmd(m_zBuffer.get());
@@ -124,9 +105,13 @@ void Renderer::Render(const Scene &scene, QImage &image)
 }
 
 void Renderer::WriteToImage(QImage& image) {
-    if (image.size() != QSize(m_width, m_height)) {
+    // Ensure the image is properly sized before accessing it
+    if (image.width() != m_width || image.height() != m_height || image.format() != QImage::Format_RGB32) {
         image = QImage(m_width, m_height, QImage::Format_RGB32);
     }
+
+    // Use image bits directly for thread-safe access instead of setPixel in parallel loop
+    QRgb *bits = reinterpret_cast<QRgb*>(image.bits());
 
     #pragma omp parallel for collapse(2)
     for (int y = 0; y < m_height; ++y) {
@@ -136,11 +121,12 @@ void Renderer::WriteToImage(QImage& image) {
             QColor c = m_colorBuffer->colorData[idx];
 
             // Apply light multipliers and apply the shade value
-            int finalRed = qBound(0, (int)(c.red() * m_lightRedMultiplier * shade * 1.3), 255);
-            int finalGreen = qBound(0, (int)(c.green() * m_lightGreenMultiplier * shade * 1.1), 255);
-            int finalBlue = qBound(0, (int)(c.blue() * m_lightBlueMultiplier * shade * 1.0), 255);
+            int finalRed = qBound(0, (int)(c.red() * m_lightRedMultiplier * shade), 255);
+            int finalGreen = qBound(0, (int)(c.green() * m_lightGreenMultiplier * shade), 255);
+            int finalBlue = qBound(0, (int)(c.blue() * m_lightBlueMultiplier * shade), 255);
 
-            image.setPixel(x, y, qRgb(finalRed, finalGreen, finalBlue));
+            // Direct memory access is safer than setPixel in a parallel context
+            bits[idx] = qRgb(finalRed, finalGreen, finalBlue);
         }
     }
 }

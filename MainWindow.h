@@ -10,6 +10,7 @@
 class Scene;
 class Renderer; // ➤ оставляем!
 class ControlPanel;
+class RenderingWidget;
 class QDockWidget;
 namespace City {
     class CityMap;
@@ -25,7 +26,6 @@ public:
     ~MainWindow() override;
 
 protected:
-    void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
@@ -52,11 +52,14 @@ private:
     void UpdateLightColor(QRgb color);  // Keep this for compatibility if needed
     void UpdateLightMultipliers(const QVector3D& multipliers);
     void RegenerateScene();
+    void applyPendingResolutionChange();
+    void EnsureImageBuffersInitialized();
 
     std::unique_ptr<Scene> m_scene;
     std::unique_ptr<Renderer> m_renderer; // ➤ оставляем!
     std::unique_ptr<City::CityMap> m_cityMap; // New city map
-    QImage m_image;
+    QImage m_renderImage;  // Changed name to be more specific
+    RenderingWidget *m_renderingWidget;  // New rendering widget
     QDockWidget *m_controlDock;
     ControlPanel *m_controlPanel;
 
@@ -66,10 +69,18 @@ private:
     double m_fps = 0.0;
     double m_renderTime = 0.0; // Time taken to render the last frame
 
+    // Additional timing variables
+    double m_actualRenderTime = 0.0; // Renamed from some other variable
+
     // Render parameters
     int m_renderWidth = 1920; // Free resolution width
     int m_renderHeight = 1080; // Free resolution height
     float m_cameraFOV = 90.0f;
+
+    // Resolution change handling
+    bool m_resolutionChangePending = false;
+    int m_pendingRenderWidth = 1920;
+    int m_pendingRenderHeight = 1080;
 
     // Map generation parameters
     int m_mapSize = 1000000;

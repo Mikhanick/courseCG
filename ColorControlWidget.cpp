@@ -21,8 +21,11 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_redSpinBox->setDecimals(3);       // 3 decimal places for precision
     m_redSpinBox->setValue(1.3);        // Initial value from the formula: * 1.3
     m_redSpinBox->setSuffix("x");
+    // Connect to editingFinished instead of valueChanged to only emit when editing is complete
     connect(m_redSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onRedSpinBoxChanged);
+    connect(m_redSpinBox, &QDoubleSpinBox::editingFinished,
+            this, &ColorControlWidget::onRedSpinBoxEditingFinished);
 
     m_greenSpinBox = new QDoubleSpinBox();
     m_greenSpinBox->setRange(0.0, 10.0);
@@ -31,6 +34,8 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_greenSpinBox->setSuffix("x");
     connect(m_greenSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onGreenSpinBoxChanged);
+    connect(m_greenSpinBox, &QDoubleSpinBox::editingFinished,
+            this, &ColorControlWidget::onGreenSpinBoxEditingFinished);
 
     m_blueSpinBox = new QDoubleSpinBox();
     m_blueSpinBox->setRange(0.0, 10.0);
@@ -39,6 +44,8 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_blueSpinBox->setSuffix("x");
     connect(m_blueSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onBlueSpinBoxChanged);
+    connect(m_blueSpinBox, &QDoubleSpinBox::editingFinished,
+            this, &ColorControlWidget::onBlueSpinBoxEditingFinished);
 
     // Layout for controls
     auto *redLayout = new QHBoxLayout();
@@ -86,18 +93,30 @@ void ColorControlWidget::setMultipliers(const QVector3D& multipliers) {
 void ColorControlWidget::onRedSpinBoxChanged(double value) {
     m_redMultiplier = value;
     updatePreviewColor();
-    emit multipliersChanged();
+    // Only emit during dragging for preview - not for final change
 }
 
 void ColorControlWidget::onGreenSpinBoxChanged(double value) {
     m_greenMultiplier = value;
     updatePreviewColor();
-    emit multipliersChanged();
+    // Only emit during dragging for preview - not for final change
 }
 
 void ColorControlWidget::onBlueSpinBoxChanged(double value) {
     m_blueMultiplier = value;
     updatePreviewColor();
+    // Only emit during dragging for preview - not for final change
+}
+
+void ColorControlWidget::onRedSpinBoxEditingFinished() {
+    emit multipliersChanged();
+}
+
+void ColorControlWidget::onGreenSpinBoxEditingFinished() {
+    emit multipliersChanged();
+}
+
+void ColorControlWidget::onBlueSpinBoxEditingFinished() {
     emit multipliersChanged();
 }
 

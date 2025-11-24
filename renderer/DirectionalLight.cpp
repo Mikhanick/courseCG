@@ -9,6 +9,7 @@ void DirectionalLight::SetDirection(const QVector3D& dir) {
     QVector3D newDir = dir.normalized();
     if (newDir != direction) {
         direction = newDir;
+        cachedCamera.reset();
         MarkShadowMapDirty();
     }
 }

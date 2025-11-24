@@ -24,6 +24,7 @@ set(SOURCES
     ControlPanel.cpp
     LightDirectionControl.cpp
     ColorControlWidget.cpp
+    RenderingWidget.cpp
     renderer/GraphicObject.cpp
     renderer/DirectionalLight.cpp
     renderer/TriangleRasterizer.cpp
@@ -44,6 +45,7 @@ set(HEADERS
     ControlPanel.h
     LightDirectionControl.h
     ColorControlWidget.h
+    RenderingWidget.h
     renderer/Face.h
     renderer/GraphicObject.h
     renderer/Light.h

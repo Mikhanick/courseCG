@@ -25,6 +25,9 @@ private slots:
     void onRedSpinBoxChanged(double value);
     void onGreenSpinBoxChanged(double value);
     void onBlueSpinBoxChanged(double value);
+    void onRedSpinBoxEditingFinished();
+    void onGreenSpinBoxEditingFinished();
+    void onBlueSpinBoxEditingFinished();
 
 private:
     void updatePreviewColor();

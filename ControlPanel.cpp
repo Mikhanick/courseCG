@@ -99,7 +99,8 @@ ControlPanel::ControlPanel(QWidget *parent) : QWidget(parent) {
     m_cameraFOVSlider = new QSlider(Qt::Horizontal);
     m_cameraFOVSlider->setRange(10, 120);  // Changed minimum FOV to 10 as requested
     m_cameraFOVSlider->setValue(90);
-    connect(m_cameraFOVSlider, &QSlider::valueChanged,
+    // Only emit on slider release, not during dragging
+    connect(m_cameraFOVSlider, &QSlider::sliderReleased,
             this, &ControlPanel::onCameraFOVChanged);
 
     m_cameraFOVLabel = new QLabel("90°");

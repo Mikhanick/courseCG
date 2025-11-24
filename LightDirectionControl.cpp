@@ -113,7 +113,6 @@ void LightDirectionControl::mousePressEvent(QMouseEvent *event) {
             m_dragging = true;
             m_controlPointPos = clickPos;
             m_direction = widgetCoordinateToVector(m_controlPointPos);
-            emit directionChanged();
             update();
         }
     }
@@ -133,13 +132,15 @@ void LightDirectionControl::mouseMoveEvent(QMouseEvent *event) {
 
         m_controlPointPos = mousePos;
         m_direction = widgetCoordinateToVector(m_controlPointPos);
-        emit directionChanged();
         update();
     }
 }
 
 void LightDirectionControl::mouseReleaseEvent(QMouseEvent *event) {
     Q_UNUSED(event)
+    if (m_dragging) {
+        emit directionChanged();
+    }
     m_dragging = false;
 }
 

@@ -12,6 +12,7 @@ SOURCES += \
     ControlPanel.cpp \
     LightDirectionControl.cpp \
     ColorControlWidget.cpp \
+    RenderingWidget.cpp \
     renderer/GraphicObject.cpp \
     renderer/DirectionalLight.cpp \
     renderer/TriangleRasterizer.cpp \
@@ -21,6 +22,7 @@ SOURCES += \
     city/strategies/SimpleRoadGenerationStrategy.cpp \
     city/objects/ResidentialRoad.cpp \
     city/objects/BuildingModel.cpp \
+    city/objects/BlockSeparatorRoad.cpp \
     city/strategies/SimpleBuildingSelector.cpp \
     city/loaders/ModelLoader.cpp \
     city/strategies/SmartBuildingSelector.cpp
@@ -30,6 +32,7 @@ HEADERS += \
     ControlPanel.h \
     LightDirectionControl.h \
     ColorControlWidget.h \
+    RenderingWidget.h \
     renderer/Face.h \
     renderer/GraphicObject.h \
     renderer/Light.h \
@@ -51,6 +54,7 @@ HEADERS += \
     city/strategies/SubdivisionRoadGenerationStrategy.h \
     city/strategies/SimpleRoadGenerationStrategy.h \
     city/objects/ResidentialRoad.h \
+    city/objects/BlockSeparatorRoad.h \
     city/strategies/SimpleBuildingSelector.h \
     city/loaders/ModelLoader.h \
     city/strategies/SmartBuildingSelector.h \

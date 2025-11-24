@@ -21,6 +21,7 @@
 #include <cmath>
 #include <limits>
 #include "ControlPanel.h"
+#include "RenderingWidget.h"
 
 // Include for global random functionality
 #include "GlobalRandom.h"
@@ -41,7 +42,7 @@ using City::CityMap;
 using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_image(1920, 1200, QImage::Format_RGB32) {
+    : QMainWindow(parent), m_renderImage(1920, 1200, QImage::Format_RGB32) {
     setWindowTitle("Software Renderer - City Generator");
     resize(1600, 1200);  // Set a reasonable initial size that accommodates the dock widget
 
@@ -72,13 +73,17 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow() = default;
 
 void MainWindow::SetupUI() {
+    // Create the rendering widget and set it as the central widget
+    m_renderingWidget = new RenderingWidget(this);
+    setCentralWidget(m_renderingWidget);
+
     // Create and setup the control dock
     m_controlDock = new QDockWidget("Controls", this);
     m_controlDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     m_controlPanel = new ControlPanel();
     m_controlDock->setWidget(m_controlPanel);
-    addDockWidget(Qt::RightDockWidgetArea, m_controlDock);
+    addDockWidget(Qt::LeftDockWidgetArea, m_controlDock);
 
     // Connect control panel signals to MainWindow slots
     connect(m_controlPanel, &ControlPanel::lightDirectionChanged,
@@ -257,16 +262,16 @@ void MainWindow::GenerateCityWithMap() {
 }
 
 void MainWindow::RenderScene() {
-    // Check if we need to adjust the image size based on render resolution
-    int targetWidth = m_renderWidth;
-    int targetHeight = m_renderHeight;
+    // Update the image buffer first to ensure it's at the correct resolution
+    EnsureImageBuffersInitialized();
 
-    if (m_image.width() != targetWidth || m_image.height() != targetHeight) {
-        m_image = QImage(targetWidth, targetHeight, QImage::Format_RGB32);
+    // Now render to the properly sized image
+    m_renderer->Render(*m_scene, m_renderImage); // ➤ вызываем метод рендерера
+
+    // Update the rendering widget with the new image
+    if (m_renderingWidget) {
+        m_renderingWidget->setImage(m_renderImage);
     }
-
-    m_renderer->Render(*m_scene, m_image); // ➤ вызываем метод рендерера
-    update();
 }
 
 void MainWindow::UpdateCamera() {
@@ -318,22 +323,18 @@ void MainWindow::OnTimeout() {
     // Record render start time to calculate actual render time
     auto renderStartTime = std::chrono::high_resolution_clock::now();
     RenderScene();
+    applyPendingResolutionChange(); // Apply any pending resolution changes
 
     // Calculate actual render time
     auto renderEndTime = std::chrono::high_resolution_clock::now();
-    m_renderTime = std::chrono::duration<double, std::milli>(renderEndTime - renderStartTime).count();
+    m_actualRenderTime = std::chrono::duration<double, std::milli>(renderEndTime - renderStartTime).count();
 
     // Update the control panel with render time (after render is done)
     if (m_controlPanel) {
-        m_controlPanel->updateRenderTime(m_renderTime);
+        m_controlPanel->updateRenderTime(m_actualRenderTime);
     }
 }
 
-void MainWindow::paintEvent(QPaintEvent* /*event*/) { // ✅ игнорируем
-    QPainter painter(this);
-    // Scale the image to fit the window while maintaining aspect ratio
-    painter.drawImage(rect(), m_image.scaled(rect().size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-}
 
 void MainWindow::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
@@ -392,28 +393,22 @@ void MainWindow::OnLightMultipliersChanged(const QVector3D& multipliers) {
 
 void MainWindow::OnMapSizeChanged(int size) {
     m_mapSize = size;
-    // Regenerate the scene when map size changes
-    RegenerateScene();
+    // Note: Only regenerate when the regenerate button is pressed
 }
 
 void MainWindow::OnSeedChanged(unsigned int seed) {
     m_currentSeed = seed;
-    // Regenerate the scene when seed changes
-    RegenerateScene();
+    // Note: Only regenerate when the regenerate button is pressed
 }
 
 void MainWindow::OnResolutionChanged(int width, int height) {
-    m_renderWidth = width;
-    m_renderHeight = height;
-    // Update renderer resolution with free resolution
-    float currentFOV = m_renderer->GetFOV();
+    // Use pending resolution change mechanism for thread safety
+    m_pendingRenderWidth = width;
+    m_pendingRenderHeight = height;
+    m_resolutionChangePending = true;
 
-    m_renderer = std::make_unique<Renderer>(width, height);
-    m_renderer->SetFOV(currentFOV); // Restore the FOV setting
-
-    // The scene remains unchanged, just the renderer resolution changes
-    // Render the scene with the new resolution
-    RenderScene();
+    // The actual resolution change will happen in applyPendingResolutionChange
+    // which is called from OnTimeout to ensure thread safety
 }
 
 void MainWindow::OnCameraFOVChanged(float fov) {
@@ -487,5 +482,36 @@ void MainWindow::UpdateLightMultipliers(const QVector3D& multipliers) {
             // the multipliers are now handled separately
             dirLight->MarkShadowMapDirty();
         }
+    }
+}
+
+void MainWindow::applyPendingResolutionChange() {
+    if (m_resolutionChangePending) {
+        int oldWidth = m_renderWidth;
+        int oldHeight = m_renderHeight;
+
+        m_renderWidth = m_pendingRenderWidth;
+        m_renderHeight = m_pendingRenderHeight;
+        m_resolutionChangePending = false;
+
+        // First, update the image buffer to the new resolution
+        EnsureImageBuffersInitialized();
+
+        // Then force renderer to recreate its buffers with new resolution
+        if (m_renderer && (m_renderWidth != oldWidth || m_renderHeight != oldHeight)) {
+            float currentFOV = m_renderer->GetFOV();
+            m_renderer = std::make_unique<Renderer>(m_renderWidth, m_renderHeight);
+            m_renderer->SetFOV(currentFOV);
+        }
+    }
+}
+
+void MainWindow::EnsureImageBuffersInitialized() {
+    // Update the image buffer to match the current render resolution first
+    int targetWidth = m_renderWidth;
+    int targetHeight = m_renderHeight;
+
+    if (m_renderImage.width() != targetWidth || m_renderImage.height() != targetHeight) {
+        m_renderImage = QImage(targetWidth, targetHeight, QImage::Format_RGB32);
     }
 }
