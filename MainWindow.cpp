@@ -43,7 +43,7 @@ using City::SimpleBuildingSelector;
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), m_renderImage(1920, 1200, QImage::Format_RGB32) {
-    setWindowTitle("Software Renderer - City Generator");
+    setWindowTitle("Программный рендерер - Генератор города");
     resize(1600, 1200);  // Set a reasonable initial size that accommodates the dock widget
 
     m_cameraPos = QVector3D(40, 65, -11);
@@ -80,7 +80,7 @@ void MainWindow::SetupUI() {
     setCentralWidget(m_renderingWidget);
 
     // Create and setup the control dock
-    m_controlDock = new QDockWidget("Controls", this);
+    m_controlDock = new QDockWidget("Управление", this);
     m_controlDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     m_controlPanel = new ControlPanel();

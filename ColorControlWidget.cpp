@@ -11,9 +11,9 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_mainLayout = new QVBoxLayout(this);
 
     // Create labels
-    m_redLabel = new QLabel("R:");
-    m_greenLabel = new QLabel("G:");
-    m_blueLabel = new QLabel("B:");
+    m_redLabel = new QLabel(QString::fromUtf8("К:"));  // Красный
+    m_greenLabel = new QLabel(QString::fromUtf8("З:"));  // Зелёный
+    m_blueLabel = new QLabel(QString::fromUtf8("С:"));  // Синий
 
     // Create spin boxes for direct float multiplier input
     m_redSpinBox = new QDoubleSpinBox();
@@ -21,7 +21,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_redSpinBox->setDecimals(3);       // 3 decimal places for precision
     m_redSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_redSpinBox->setValue(1.3);        // Initial value from the formula: * 1.3
-    m_redSpinBox->setSuffix("x");
+    m_redSpinBox->setSuffix(QString::fromUtf8("x")); // Множитель
     // Connect to editingFinished instead of valueChanged to only emit when editing is complete
     connect(m_redSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onRedSpinBoxChanged);
@@ -33,7 +33,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_greenSpinBox->setDecimals(3);
     m_greenSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_greenSpinBox->setValue(1.1);      // Initial value from the formula: * 1.1
-    m_greenSpinBox->setSuffix("x");
+    m_greenSpinBox->setSuffix(QString::fromUtf8("x")); // Множитель
     connect(m_greenSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onGreenSpinBoxChanged);
     connect(m_greenSpinBox, &QDoubleSpinBox::editingFinished,
@@ -44,7 +44,7 @@ ColorControlWidget::ColorControlWidget(QWidget *parent)
     m_blueSpinBox->setDecimals(3);
     m_blueSpinBox->setSingleStep(0.1);   // Set step to 0.1
     m_blueSpinBox->setValue(1.0);       // Initial value from the formula: * 1.0
-    m_blueSpinBox->setSuffix("x");
+    m_blueSpinBox->setSuffix(QString::fromUtf8("x")); // Множитель
     connect(m_blueSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &ColorControlWidget::onBlueSpinBoxChanged);
     connect(m_blueSpinBox, &QDoubleSpinBox::editingFinished,
@@ -124,11 +124,24 @@ void ColorControlWidget::onBlueSpinBoxEditingFinished() {
 }
 
 void ColorControlWidget::updatePreviewColor() {
-    // Calculate an average color for preview based on multipliers
-    // Using normalized multipliers to create a visual color representation
-    int r = qBound(0, static_cast<int>(qMin(m_redMultiplier * 255.0, 255.0)), 255);
-    int g = qBound(0, static_cast<int>(qMin(m_greenMultiplier * 255.0, 255.0)), 255);
-    int b = qBound(0, static_cast<int>(qMin(m_blueMultiplier * 255.0, 255.0)), 255);
+    // Calculate a preview color normalized based on the highest multiplier
+    // Using the highest multiplier as reference (1.0 = 255), so if max = 3.0, then 3.0 maps to 255
+    double maxMultiplier = qMax(qMax(m_redMultiplier, m_greenMultiplier), m_blueMultiplier);
+
+    if (maxMultiplier <= 0.0) {
+        // If all multipliers are zero or negative, show black
+        QColor color(0, 0, 0);
+        QPixmap pixmap(160, 40);  // Wider pixmap to show the color
+        pixmap.fill(color);
+        m_previewLabel->setPixmap(pixmap);
+        return;
+    }
+
+    // Normalize each component based on the maximum multiplier
+    // If maxMultiplier > 1.0, we scale to keep the highest at 255
+    int r = qBound(0, static_cast<int>(m_redMultiplier * 255.0 / maxMultiplier), 255);
+    int g = qBound(0, static_cast<int>(m_greenMultiplier * 255.0 / maxMultiplier), 255);
+    int b = qBound(0, static_cast<int>(m_blueMultiplier * 255.0 / maxMultiplier), 255);
 
     QColor color(r, g, b);
     QPixmap pixmap(160, 40);  // Wider pixmap to show the color

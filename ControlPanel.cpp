@@ -7,67 +7,67 @@
 
 ControlPanel::ControlPanel(QWidget *parent) : QWidget(parent) {
     m_mainLayout = new QVBoxLayout(this);
-    
+
     // FPS and render time display
     auto *infoLayout = new QHBoxLayout();
     m_fpsLabel = new QLabel("FPS: 0");
-    m_renderTimeLabel = new QLabel("Render Time: 0ms");
+    m_renderTimeLabel = new QLabel("Время рендеринга: 0мс");
     infoLayout->addWidget(m_fpsLabel);
     infoLayout->addWidget(m_renderTimeLabel);
     infoLayout->addStretch(); // Add stretch to align labels to the left
-    
+
     m_mainLayout->addLayout(infoLayout);
-    
+
     // Light controls group
-    auto *lightGroup = new QGroupBox("Light Controls");
+    auto *lightGroup = new QGroupBox("Управление светом");
     auto *lightLayout = new QHBoxLayout();
-    
+
     // Light direction control
     m_lightDirectionControl = new LightDirectionControl();
     connect(m_lightDirectionControl, &LightDirectionControl::directionChanged,
             this, &ControlPanel::onLightDirectionChanged);
-    
+
     // Light color control
     m_lightColorControl = new ColorControlWidget();
     connect(m_lightColorControl, &ColorControlWidget::multipliersChanged,
             this, &ControlPanel::onLightColorChanged);
-    
+
     lightLayout->addWidget(m_lightDirectionControl);
     lightLayout->addWidget(m_lightColorControl);
     lightGroup->setLayout(lightLayout);
-    
+
     m_mainLayout->addWidget(lightGroup);
-    
+
     // Map generation controls group
-    auto *mapGroup = new QGroupBox("Map Generation");
+    auto *mapGroup = new QGroupBox("Генерация карты");
     auto *mapLayout = new QFormLayout();
-    
+
     m_mapSizeSpinBox = new QSpinBox();
     m_mapSizeSpinBox->setRange(50, 1000000);
     m_mapSizeSpinBox->setValue(1000000);
-    m_mapSizeSpinBox->setSuffix(" units");
+    m_mapSizeSpinBox->setSuffix(" ед.");
     connect(m_mapSizeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ControlPanel::onMapSizeChanged);
-    
+
     m_seedSpinBox = new QSpinBox();
     m_seedSpinBox->setRange(0, 999999);
     m_seedSpinBox->setValue(5);
     connect(m_seedSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ControlPanel::onSeedChanged);
-    
-    m_regenerateButton = new QPushButton("Regenerate Map");
+
+    m_regenerateButton = new QPushButton("Сгенерировать карту заново");
     connect(m_regenerateButton, &QPushButton::clicked,
             this, &ControlPanel::onRegenerateMapClicked);
-    
-    mapLayout->addRow("Size:", m_mapSizeSpinBox);
-    mapLayout->addRow("Seed:", m_seedSpinBox);
+
+    mapLayout->addRow("Размер:", m_mapSizeSpinBox);
+    mapLayout->addRow("Зерно:", m_seedSpinBox);
     mapLayout->addRow(m_regenerateButton);
     mapGroup->setLayout(mapLayout);
-    
+
     m_mainLayout->addWidget(mapGroup);
-    
+
     // Render settings group
-    auto *renderGroup = new QGroupBox("Render Settings");
+    auto *renderGroup = new QGroupBox("Настройки рендеринга");
     auto *renderLayout = new QFormLayout();
 
     // Resolution controls (width and height as spin boxes)
@@ -112,13 +112,13 @@ ControlPanel::ControlPanel(QWidget *parent) : QWidget(parent) {
     fovLayout->addWidget(m_cameraFOVSlider);
     fovLayout->addWidget(m_cameraFOVLabel);
 
-    renderLayout->addRow("Resolution:", resolutionLayout);
+    renderLayout->addRow("Разрешение:", resolutionLayout);
     renderLayout->addRow(m_renderResolutionLabel);
-    renderLayout->addRow("FOV:", fovLayout);
+    renderLayout->addRow("Поле зрения:", fovLayout);
     renderGroup->setLayout(renderLayout);
 
     m_mainLayout->addWidget(renderGroup);
-    
+
     m_mainLayout->addStretch(); // Add stretch to use remaining space
 }
 

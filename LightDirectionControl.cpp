@@ -68,9 +68,9 @@ void LightDirectionControl::paintEvent(QPaintEvent *event) {
 
     // Draw axis labels
     painter.setPen(QPen(QColor(255, 0, 0), 1));
-    painter.drawText(circleRect.right() + 5, centerPoint.y() + 5, "X");
+    painter.drawText(circleRect.right() + 5, centerPoint.y() + 5, QString::fromUtf8("X")); // Ось X
     painter.setPen(QPen(QColor(0, 0, 255), 1));
-    painter.drawText(centerPoint.x() - 15, circleRect.top() - 5, "Z");
+    painter.drawText(centerPoint.x() - 15, circleRect.top() - 5, QString::fromUtf8("Z")); // Ось Z
 }
 
 QPointF LightDirectionControl::vectorToWidgetCoordinate(const QVector3D& vec) const {
