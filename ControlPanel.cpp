@@ -55,7 +55,7 @@ ControlPanel::ControlPanel(QWidget *parent) : QWidget(parent) {
     connect(m_seedSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ControlPanel::onSeedChanged);
 
-    m_regenerateButton = new QPushButton("Сгенерировать карту заново");
+    m_regenerateButton = new QPushButton("Сгенерировать карту");
     connect(m_regenerateButton, &QPushButton::clicked,
             this, &ControlPanel::onRegenerateMapClicked);
 
@@ -114,7 +114,7 @@ ControlPanel::ControlPanel(QWidget *parent) : QWidget(parent) {
 
     renderLayout->addRow("Разрешение:", resolutionLayout);
     renderLayout->addRow(m_renderResolutionLabel);
-    renderLayout->addRow("Поле зрения:", fovLayout);
+    renderLayout->addRow("Угол обзора:", fovLayout);
     renderGroup->setLayout(renderLayout);
 
     m_mainLayout->addWidget(renderGroup);
@@ -197,5 +197,5 @@ void ControlPanel::updateFPS(double fps) {
 }
 
 void ControlPanel::updateRenderTime(double renderTime) {
-    m_renderTimeLabel->setText(QString("Render Time: %1ms").arg(renderTime, 0, 'f', 2));
+    m_renderTimeLabel->setText(QString("Затрачено: %1ms").arg(renderTime, 0, 'f', 2));
 }
