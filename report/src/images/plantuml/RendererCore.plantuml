@@ -1,0 +1,107 @@
+@startuml
+!theme plain
+skinparam classFontSize 13
+skinparam classAttributeIconSize 0
+
+class Renderer {
+  -int m_width
+  -int m_height
+  -float m_fov
+  -float m_near
+  -float m_far
+  -bool m_forceBufferRecreation
+  -int m_shadowMapWidth
+  -int m_shadowMapHeight
+  -std::unique_ptr<ZBuffer> m_zBuffer
+  -std::unique_ptr<ColorBuffer> m_colorBuffer
+  -std::unique_ptr<ShadeBuffer> m_shadeBuffer
+  -std::unique_ptr<ProjectionStrategy> m_projection
+  -std::vector<std::unique_ptr<ZBuffer>> shadowZBuf
+  -float m_lightRedMultiplier
+  -float m_lightGreenMultiplier
+  -float m_lightBlueMultiplier
+  +Renderer(int width, int height)
+  +void Render(const Scene &scene, QImage &image)
+  +void SetShadowMapSize(int width, int height)
+  +int GetShadowMapWidth() const
+  +int GetShadowMapHeight() const
+  +void UpdateShadowBuffers(const Scene& scene)
+  +void SetFOV(float fov)
+  +float GetFOV() const
+}
+
+abstract class ScreenBuffer {
+  -int width
+  -int height
+  -CameraPtr camera
+  -std::unique_ptr<ProjectionStrategy> projection
+  +ScreenBuffer(int w, int h, CameraPtr cam,\n std::unique_ptr<ProjectionStrategy> proj)
+  +virtual void Clear() = 0
+  +bool Project(const QVector3D& worldPos, float& outX,\nfloat& outY, float& outDepth, float& outW) const
+  +bool InBounds(int x, int y) const
+}
+
+class ZBuffer {
+  -std::vector<float> depthData
+  +ZBuffer(int w, int h, CameraPtr cam, std::unique_ptr<ProjectionStrategy> proj)
+  +void Clear() override
+  +float& At(int x, int y)
+  +float At(int x, int y) const
+  +inline bool ZTestAndUpdate(int x, int y, float depth)
+  +inline float GetDepthDifference(const QVector3D& worldPos) const
+}
+
+class ColorBuffer {
+  -std::vector<QColor> colorData
+  +ColorBuffer(int w, int h, CameraPtr cam,\n std::unique_ptr<ProjectionStrategy> proj)
+  +void Clear() override
+}
+
+class ShadeBuffer {
+  -std::vector<float> shadeData
+  +ShadeBuffer(int w, int h, CameraPtr cam,\n std::unique_ptr<ProjectionStrategy> proj)
+  +void Clear() override
+  +void Smooth(int radius)
+}
+
+abstract class ProjectionStrategy {
+  -bool Project(const QVector3D& worldPos, const\nCamera& camera, float& x, float& y, float& z, float& w) const
+  -std::unique_ptr<ProjectionStrategy> Clone() const
+  +{abstract} ~ProjectionStrategy()
+}
+
+class OrthographicProjection {
+  -float left
+  -float right
+  -float bottom
+  -float top
+  -float nearPlane
+  -float farPlane
+  +OrthographicProjection(float l, float r, float b, float t, float n, float f)
+  +bool Project(...) const override
+  +std::unique_ptr<ProjectionStrategy> Clone() const override
+}
+
+class PerspectiveProjection {
+  -float fov
+  -float aspect
+  -float nearPlane
+  -float farPlane
+  +PerspectiveProjection(float f, float a, float n, float f)
+  +bool Project(...) const override
+  +std::unique_ptr<ProjectionStrategy> Clone() const override
+}
+
+class Scene
+
+Renderer --> Scene : использует для рендеринга
+Renderer --> TriangleRasterizer 
+Renderer o-- ScreenBuffer : владеет основными\nбуферами
+Renderer o-- "1..*" ZBuffer : владеет\nshadow maps
+ScreenBuffer <|-- ZBuffer
+ScreenBuffer <|-- ColorBuffer
+ScreenBuffer <|-- ShadeBuffer
+ProjectionStrategy <|-- OrthographicProjection
+ProjectionStrategy <|-- PerspectiveProjection
+ScreenBuffer o-- ProjectionStrategy : использует проекцию
+@enduml

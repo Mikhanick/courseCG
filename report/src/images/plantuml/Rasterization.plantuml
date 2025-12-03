@@ -1,0 +1,90 @@
+@startuml
+!theme plain
+skinparam classFontSize 13
+skinparam classAttributeIconSize 0
+
+class TriangleRasterizer {
+  +{static} void DrawTriangle(RasterCommand_v cmd, QVector3D p0, QVector3D p1, QVector3D p2)
+  -bool IsTriangleOutsideViewport(QVector3D p0, QVector3D p1, QVector3D p2, QRectF viewport)
+}
+
+interface RasterCommand_v {
+  +QRectF GetViewport()
+  +bool Project(QVector3D worldPos, float x, float y, float z, float w)
+  +bool Execute(FragmentData frag)
+  +void setColor(QColor color)
+  +void setNormal(QVector3D vec)
+}
+
+class ZBufferRasterCommand {
+  -ZBuffer *zBuffer
+  +ZBufferRasterCommand(ZBuffer *zb)
+  +QRectF GetViewport() const
+  +bool Project(QVector3D worldPos, float x, float y, float z, float w) const
+  +bool Execute(FragmentData frag)
+  +void setColor(QColor color)
+  +void setNormal(QVector3D vec)
+}
+
+class ColorWriteCommand {
+  -ColorBuffer *colorBuffer
+  -QColor color
+  +ColorWriteCommand(ColorBuffer *cb, QColor c)
+  +QRectF GetViewport() const
+  +bool Project(QVector3D worldPos, float x, float y, float z, float w)
+  +bool Execute(FragmentData frag)
+  +void setColor(QColor clr)
+  +void setNormal(QVector3D vec)
+}
+
+class ShadeWriteCommand {
+  -ShadeBuffer *shadeBuffer
+  -const Scene *scene
+  -const std::vector<std::unique_ptr<ZBuffer>> &shadowZBuffers
+  -QVector3D normal
+  +ShadeWriteCommand(ShadeBuffer *sb, Scene *s,\n std::vector<std::unique_ptr<ZBuffer>> &shadows, QVector3D n)
+  +QRectF GetViewport() const
+  +bool Project(QVector3D worldPos, float x, float y, float z, float w)
+  +bool Execute(FragmentData frag)
+  +void setNormal(QVector3D n)
+  +void setColor(QColor c)
+}
+
+class ComplexWriteCommand {
+  -ZBufferRasterCommand &zCommand
+  -ColorWriteCommand &colorWriter
+  -ShadeWriteCommand &shadeWriter
+  +ComplexWriteCommand(ZBufferRasterCommand &zcmd,\n ColorWriteCommand &cw, ShadeWriteCommand &sw)
+  +QRectF GetViewport() const
+  +bool Project(QVector3D worldPos, float x, float y, float z, float w)
+  +bool Execute(FragmentData frag)
+  +void setColor(QColor clr)
+  +void setNormal(QVector3D vec)
+}
+
+class FragmentData {
+  +int x
+  +int y
+  +float depth
+  +QVector3D worldPos
+}
+
+class ZBuffer
+class ColorBuffer
+class ShadeBuffer
+class Scene
+
+TriangleRasterizer ..> RasterCommand_v : использует команды
+RasterCommand_v <|.. ZBufferRasterCommand
+RasterCommand_v <|.. ColorWriteCommand
+RasterCommand_v <|.. ShadeWriteCommand
+RasterCommand_v <|.. ComplexWriteCommand
+ZBufferRasterCommand --> ZBuffer : пишет в Z-буфер
+ColorWriteCommand --> ColorBuffer : пишет в цветовой буфер
+ShadeWriteCommand --> ShadeBuffer : пишет в буфер освещения
+ShadeWriteCommand --> Scene : использует данные сцены
+ShadeWriteCommand --> ZBuffer : проверяет теневые карты
+ComplexWriteCommand --> ZBufferRasterCommand : делегирует работу
+ComplexWriteCommand --> ColorWriteCommand
+ComplexWriteCommand --> ShadeWriteCommand
+@enduml

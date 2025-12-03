@@ -1,2 +1,0 @@
-set(__QT_DEPLOY_TARGET_RendererGUI_FILE /drive_d/Documents/CG_curs/program/RendererGUI)
-set(__QT_DEPLOY_TARGET_RendererGUI_TYPE EXECUTABLE)

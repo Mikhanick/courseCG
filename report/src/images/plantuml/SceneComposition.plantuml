@@ -1,0 +1,88 @@
+@startuml SceneComposition
+!theme plain
+skinparam classFontSize 13
+skinparam classAttributeIconSize 0
+
+class Scene {
+  -std::vector<std::unique_ptr<GraphicObject>> objects
+  -CameraPtr camera
+  -std::vector<std::unique_ptr<Light>> lights
+  +void AddObject(GraphicObject* obj)
+  +void AddLight(Light* light)
+  +void MarkAllShadowMapsDirty()
+  +void getBounds(float& minX, float& minY, float& minZ,\n float& maxX, float& maxY, float& maxZ) const
+  +void getSceneExtent(float& minX, float& minZ, float& maxX, float& maxZ) const
+}
+
+class Camera {
+  -QVector3D position
+  -QVector3D target
+  -QVector3D up
+  +Camera(const QVector3D& pos, const QVector3D& tgt, const QVector3D& u)
+  +QMatrix4x4 GetViewMatrix() const
+  +void SetPosition(const QVector3D& pos)
+  +void SetTarget(const QVector3D& tgt)
+  +QVector3D GetPosition() const
+  +QVector3D GetTarget() const
+  +QVector3D GetUp() const
+}
+
+abstract class Light {
+  -QVector3D GetDirectionTo(const QVector3D& point) const
+  -float ComputeShadowFactor(const QVector3D& worldPos,\n const ZBuffer* shadowZBuffer) const
+  -std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width, \n int height, std::unique_ptr<ProjectionStrategy> proj) const
+  -bool NeedsShadowMap() const
+  -void MarkShadowMapDirty()
+  -CameraPtr GetCamera() const
+  +{abstract} ~Light()
+}
+
+class DirectionalLight {
+  -QVector3D direction
+  -QColor color
+  -mutable bool shadowMapDirty
+  -mutable CameraPtr cachedCamera
+  +DirectionalLight(const QVector3D& dir, const QColor& lightColor)
+  +void SetDirection(const QVector3D& dir)
+  +void SetColor(const QColor& lightColor)
+  +QVector3D GetDirectionTo(const QVector3D& point) const override
+  +float ComputeShadowFactor(const QVector3D& worldPos,\n const ZBuffer* shadowZBuffer) const override
+  +std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width,\n int height, std::unique_ptr<ProjectionStrategy> proj) const override
+  +bool NeedsShadowMap() const override
+  +void MarkShadowMapDirty() override
+  +CameraPtr GetCamera() const override
+  +QColor GetColor() const
+  +QVector3D GetDirection() const
+}
+
+class GraphicObject {
+  -std::vector<QVector3D> points
+  -std::vector<Face> faces
+  +void AddPoint(const QVector3D& p)
+  +void AddFace(int i0, int i1, int i2, const QColor& color)
+  +void ComputeFaceNormals()
+  +QVector2D getDimensions() const
+  +void placeAt(const QVector3D& coord, const QVector3D& norm)
+}
+
+class Face {
+  -int index0
+  -int index1
+  -int index2
+  -QVector3D normal
+  -QColor color
+  +Face(int i0, int i1, int i2, const QColor& c)
+}
+
+class ZBuffer
+class ProjectionStrategy
+
+Scene *-- "0..*" GraphicObject : содержит
+Scene *-- "0..*" Light : содержит источники света
+Scene *-- Camera : использует камеру
+Light <|-- DirectionalLight
+GraphicObject *-- "0..*" Face : состоит из граней
+DirectionalLight o-- Camera : кеширует камеру для\nтеневых карт
+Light ..> ZBuffer : создаёт теневые карты
+Light ..> ProjectionStrategy : использует проекцию
+@enduml
