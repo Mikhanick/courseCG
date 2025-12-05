@@ -183,13 +183,13 @@ copy-pdf-to-clipboard: $(PDF_TARGET)
 	\
 	if [ "$$XDG_SESSION_TYPE" = "wayland" ] && command -v wl-copy >/dev/null; then \
 		echo "$$URI" | wl-copy --type text/uri-list -n; \
-		echo "✅ PDF '$$FILE' скопирован в буфер обмена (Wayland)"; \
+		echo "✅ PDF '$$FILE' скопирован в буфер обмена"; \
 		exit 0; \
 	fi; \
 	\
 	if command -v xclip >/dev/null; then \
 		echo "$$URI" | xclip -selection clipboard -t text/uri-list -i; \
-		echo "✅ PDF '$$FILE' скопирован в буфер обмена (X11)"; \
+		echo "✅ PDF '$$FILE' скопирован в буфер обмена"; \
 		exit 0; \
 	fi; \
 	\

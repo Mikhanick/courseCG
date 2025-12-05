@@ -1,0 +1,29 @@
+@startuml
+skinparam ParticipantPadding 15
+skinparam maxMessageSize 160
+skinparam defaultFontSize 16
+
+actor Пользователь
+participant "CityMap" as CM
+participant "AbstractRoadGenerationStrategy" as RG
+participant "SmartBuildingSelector" as SBS
+participant "ModelLoader" as ML
+participant "ResidentialRoad" as RR
+
+
+Пользователь -> CM: exportToScene()
+activate CM
+loop для каждой дороги
+    CM -> RR: getRoadMesh()
+    activate RR
+    RR --> CM: вернуть GraphicObject дороги
+    deactivate RR
+    CM -> RR: getBuildingMeshes()
+    activate RR
+    RR --> CM: вернуть vector<GraphicObject> зданий
+    deactivate RR
+end
+CM --> Пользователь: вернуть vector<GraphicObject>
+deactivate CM
+
+@enduml

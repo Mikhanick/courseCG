@@ -3,143 +3,136 @@
 skinparam classFontSize 13
 skinparam classAttributeIconSize 0
 
-package "City Domain" {
-
-    ' Enums
-    enum RoadType {
-        RESIDENTIAL
-        BLOCK_SEPARATOR
-    }
-
-    enum BuildingSide {
-        LEFT = -1
-        BOTH = 0
-        RIGHT = 1
-        NONE = 2
-    }
-
-    ' Abstract base classes
-    abstract class AbstractRoad {
-        +{abstract} ~AbstractRoad()
-        +{abstract} QVector3D getStart() const
-        +{abstract} QVector3D getEnd() const
-        +{abstract} float getWidth() const
-        +{abstract} float getLength() const
-        +{abstract} RoadType getType() const
-        +{abstract} float getTypeWeight() const
-        +{abstract} void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const
-        +{abstract} QVector3D calculateGlobalPosition(const QRectF& plot, \n const QVector3D& buildingSize, bool isLeftSide = true) const
-        +{abstract} QVector3D calculateNormal() const
-        +{abstract} GraphicObject getRoadMesh() const
-        +{abstract} std::vector<GraphicObject> getBuildingMeshes() const
-        +{abstract} void addBuildingMesh(GraphicObject&& building)
-        +{abstract} void setBuildingSideFromEnum(BuildingSide side)
-        +{abstract} BuildingSide getBuildingSideAsEnum() const
-        +{abstract} AbstractRoad clone() const
-    }
-
-    Abstract AbstractBuildingSelector {
-        +{abstract} ~AbstractBuildingSelector()
-        +{abstract} GraphicObject select(const QRectF& availableArea) = 0
-    }
-
-    Abstract AbstractRoadGenerationStrategy {
-        +{abstract} ~AbstractRoadGenerationStrategy()
-        +{abstract} std::vector<std::unique_ptr<AbstractRoad>> generate(float cityArea) = 0
-    }
-
-    ' Road implementations
-    class ResidentialRoad {
-        -QVector3D m_start
-        -QVector3D m_end
-        -float m_width
-        -std::vector<GraphicObject> m_buildings
-        -BuildingSide m_buildingSide
-        +ResidentialRoad(const QVector3D& start,\n const QVector3D& end, float width = 12.0f)
-    }
-
-    class BlockSeparatorRoad {
-        -QVector3D m_start
-        -QVector3D m_end
-        -float m_width
-        -std::vector<GraphicObject> m_buildings
-        -BuildingSide m_buildingSide
-        +BlockSeparatorRoad(const QVector3D& start,\n const QVector3D& end, float width = 20.0f)
-    }
-
-    ' Building selector implementations
-
-    class SmartBuildingSelector {
-        -std::vector<BuildingModel> availableModels
-        -std::mt19937 randomEngine
-        +SmartBuildingSelector(const QString& modelsDir)
-        +void setSeed(unsigned int seed)
-        +GraphicObject select(const QRectF& availableArea) override
-        -BuildingModel chooseBestModel(const QSizeF& availableSize) const
-        -GraphicObject buildFromModel(const BuildingModel& model,\n const QSizeF& baseSize) const
-        -QSizeF getBaseDimensions(const FloorSection& section) const
-        -float getSectionHeight(const FloorSection& section) const
-    }
-
-    ' Road generation strategy implementations
-
-    class SubdivisionRoadGenerationStrategy {
-        -float m_minBlockSize
-        -int m_maxDepth
-        +SubdivisionRoadGenerationStrategy(float \nminBlockSize = 600.0f, int maxDepth = 10)
-        +std::vector<std::unique_ptr<AbstractRoad>>\n generate(float cityArea) override
-    }
-
-    ' Core classes
-    class CityMap {
-        -std::vector<std::unique_ptr<AbstractRoad>> m_roads
-        -std::unique_ptr<AbstractRoadGenerationStrategy> m_roadGen
-        -std::unique_ptr<AbstractBuildingSelector> m_buildingSelector
-        -float m_cityArea
-        +CityMap(std::unique_ptr<AbstractRoadGenerationStrategy> roadGen,\n std::unique_ptr<AbstractBuildingSelector> buildingSelector)
-        +void generate(float cityArea)
-        +std::vector<GraphicObject> exportToScene() const
-    }
-
-    ' Model classes
-    class BuildingModel {
-        +QString name
-        +float minWidth, maxWidth
-        +float minDepth, maxDepth
-        +int floorCount
-        +float textureScale
-        +bool fixedScale
-        +FloorSection groundFloor
-        +FloorSection typicalFloor
-        +FloorSection roof
-    }
-
-    class FloorSection {
-        +std::vector<QVector3D> vertices
-        +std::vector<Face> faces
-    }
-
-    class ModelLoader {
-        +static std::vector<BuildingModel> loadModelsFromDirectory(const QString& dirPath)
-        -static BuildingModel parseModelFile(const QString& filePath)
-        -static QColor parseColor(const QString& colorStr)
-    }
-
-    ' Relationships
-    AbstractRoad <|-- ResidentialRoad
-    AbstractRoad <|-- BlockSeparatorRoad
-    AbstractBuildingSelector <|-- SmartBuildingSelector
-    AbstractRoadGenerationStrategy <|-- SubdivisionRoadGenerationStrategy
-
-    CityMap *-- AbstractRoadGenerationStrategy
-    CityMap *-- AbstractBuildingSelector
-    CityMap *-- "1..*" AbstractRoad
-
-    SmartBuildingSelector *-- ModelLoader
-    SmartBuildingSelector *-- BuildingModel
-    ModelLoader *-- BuildingModel
-
-    BuildingModel *-- FloorSection
+' Enums
+enum RoadType {
+    RESIDENTIAL
+    BLOCK_SEPARATOR
 }
+
+enum BuildingSide {
+    LEFT = -1
+    BOTH = 0
+    RIGHT = 1
+    NONE = 2
+}
+
+' Abstract base classes
+abstract class AbstractRoad {
+    +{abstract} ~AbstractRoad()
+    +{abstract} QVector3D getStart() const
+    +{abstract} QVector3D getEnd() const
+    +{abstract} RoadType getType() const
+    +{abstract} float getTypeWeight() const
+    +{abstract} void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const
+    +{abstract} QVector3D calculateGlobalPosition(const QRectF& plot, \n const QVector3D& buildingSize, bool isLeftSide = true) const
+    +{abstract} QVector3D calculateNormal() const
+    +{abstract} GraphicObject getRoadMesh() const
+    +{abstract} std::vector<GraphicObject> getBuildingMeshes() const
+    +{abstract} void addBuildingMesh(GraphicObject&& building)
+    +{abstract} AbstractRoad clone() const
+}
+
+Abstract AbstractBuildingSelector {
+    +{abstract} ~AbstractBuildingSelector()
+    +{abstract} GraphicObject select(const QRectF& availableArea) = 0
+}
+
+Abstract AbstractRoadGenerationStrategy {
+    +{abstract} ~AbstractRoadGenerationStrategy()
+    +{abstract} std::vector<std::unique_ptr<AbstractRoad>> generate(float cityArea) = 0
+}
+
+' Road implementations
+class ResidentialRoad {
+    -QVector3D m_start
+    -QVector3D m_end
+    -float m_width
+    -std::vector<GraphicObject> m_buildings
+    -BuildingSide m_buildingSide
+    +ResidentialRoad(const QVector3D& start,\n const QVector3D& end, float width = 12.0f)
+}
+
+class BlockSeparatorRoad {
+    -QVector3D m_start
+    -QVector3D m_end
+    -float m_width
+    -std::vector<GraphicObject> m_buildings
+    -BuildingSide m_buildingSide
+    +BlockSeparatorRoad(const QVector3D& start,\n const QVector3D& end, float width = 20.0f)
+}
+
+' Building selector implementations
+
+class SmartBuildingSelector {
+    -std::vector<BuildingModel> availableModels
+    -std::mt19937 randomEngine
+    +SmartBuildingSelector(const QString& modelsDir)
+    +void setSeed(unsigned int seed)
+    +GraphicObject select(const QRectF& availableArea) override
+    -BuildingModel chooseBestModel(const QSizeF& availableSize) const
+    -GraphicObject buildFromModel(const BuildingModel& model,\n const QSizeF& baseSize) const
+    -QSizeF getBaseDimensions(const FloorSection& section) const
+    -float getSectionHeight(const FloorSection& section) const
+}
+
+' Road generation strategy implementations
+
+class SubdivisionRoadGenerationStrategy {
+    -float m_minBlockSize
+    -int m_maxDepth
+    +SubdivisionRoadGenerationStrategy(float \nminBlockSize = 600.0f, int maxDepth = 10)
+    +std::vector<std::unique_ptr<AbstractRoad>>\n generate(float cityArea) override
+}
+
+' Core classes
+class CityMap {
+    -std::vector<std::unique_ptr<AbstractRoad>> m_roads
+    -std::unique_ptr<AbstractRoadGenerationStrategy> m_roadGen
+    -std::unique_ptr<AbstractBuildingSelector> m_buildingSelector
+    -float m_cityArea
+    +CityMap(std::unique_ptr<AbstractRoadGenerationStrategy> roadGen,\n std::unique_ptr<AbstractBuildingSelector> buildingSelector)
+    +void generate(float cityArea)
+    +std::vector<GraphicObject> exportToScene() const
+}
+
+' Model classes
+class BuildingModel {
+    +QString name
+    +float minWidth, maxWidth
+    +float minDepth, maxDepth
+    +int floorCount
+    +float textureScale
+    +bool fixedScale
+    +FloorSection groundFloor
+    +FloorSection typicalFloor
+    +FloorSection roof
+}
+
+class FloorSection {
+    +std::vector<QVector3D> vertices
+    +std::vector<Face> faces
+}
+
+class ModelLoader {
+    +static std::vector<BuildingModel> loadModelsFromDirectory(const QString& dirPath)
+    -static BuildingModel parseModelFile(const QString& filePath)
+    -static QColor parseColor(const QString& colorStr)
+}
+
+' Relationships
+AbstractRoad <|-- ResidentialRoad
+AbstractRoad <|-- BlockSeparatorRoad
+AbstractBuildingSelector <|-- SmartBuildingSelector
+AbstractRoadGenerationStrategy <|-- SubdivisionRoadGenerationStrategy
+
+CityMap *-- AbstractRoadGenerationStrategy
+CityMap *-- AbstractBuildingSelector
+CityMap *-- "1..*" AbstractRoad
+
+SmartBuildingSelector *-- ModelLoader
+SmartBuildingSelector *-- BuildingModel
+ModelLoader *-- BuildingModel
+
+BuildingModel *-- FloorSection
 
 @enduml

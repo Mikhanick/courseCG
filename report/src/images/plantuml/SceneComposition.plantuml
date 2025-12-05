@@ -1,7 +1,8 @@
 @startuml SceneComposition
 !theme plain
-skinparam classFontSize 13
+skinparam classFontSize 16
 skinparam classAttributeIconSize 0
+
 
 class Scene {
   -std::vector<std::unique_ptr<GraphicObject>> objects
@@ -10,7 +11,7 @@ class Scene {
   +void AddObject(GraphicObject* obj)
   +void AddLight(Light* light)
   +void MarkAllShadowMapsDirty()
-  +void getBounds(float& minX, float& minY, float& minZ,\n float& maxX, float& maxY, float& maxZ) const
+  +void getBounds(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ) const
   +void getSceneExtent(float& minX, float& minZ, float& maxX, float& maxZ) const
 }
 
@@ -46,8 +47,8 @@ class DirectionalLight {
   +void SetDirection(const QVector3D& dir)
   +void SetColor(const QColor& lightColor)
   +QVector3D GetDirectionTo(const QVector3D& point) const override
-  +float ComputeShadowFactor(const QVector3D& worldPos,\n const ZBuffer* shadowZBuffer) const override
-  +std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width,\n int height, std::unique_ptr<ProjectionStrategy> proj) const override
+  +float ComputeShadowFactor(const QVector3D& worldPos, const ZBuffer* shadowZBuffer) const override
+  +std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width, int height, std::unique_ptr<ProjectionStrategy> proj) const override
   +bool NeedsShadowMap() const override
   +void MarkShadowMapDirty() override
   +CameraPtr GetCamera() const override
@@ -59,10 +60,10 @@ class GraphicObject {
   -std::vector<QVector3D> points
   -std::vector<Face> faces
   +void AddPoint(const QVector3D& p)
-  +void AddFace(int i0, int i1, int i2, const QColor& color)
+  +void AddFace(int i0, int i1, int i2,\n const QColor& color)
   +void ComputeFaceNormals()
   +QVector2D getDimensions() const
-  +void placeAt(const QVector3D& coord, const QVector3D& norm)
+  +void placeAt(const QVector3D& coord,\n const QVector3D& norm)
 }
 
 class Face {

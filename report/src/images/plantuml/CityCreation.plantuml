@@ -1,8 +1,8 @@
 @startuml
 title Процесс создания города
-skinparam ParticipantPadding 20
-skinparam maxMessageSize 160
-
+skinparam ParticipantPadding 23
+skinparam maxMessageSize 210
+skinparam defaultFontSize 17
 
 actor Пользователь
 participant "CityMap" as CM
@@ -10,16 +10,14 @@ participant "AbstractRoadGenerationStrategy" as RG
 participant "SmartBuildingSelector" as SBS
 participant "ModelLoader" as ML
 participant "ResidentialRoad" as RR
-participant "BlockSeparatorRoad" as BR
 
 Пользователь -> CM: создать CityMap(roadGen, buildingSelector)
 activate CM
 CM -> RG: конструктор()
 CM -> SBS: конструктор(путьКМоделям)
 activate SBS
-SBS -> ML: loadModelsFromDirectory(путьКМоделям)
+SBS -> ML: loadModelsFromDirectory(\n    путьКМоделям)
 activate ML
-ML -> ML: проверить существование директории
 ML -> ML: получить список JSON файлов
 loop для каждого JSON файла
     ML -> ML: открыть и прочитать файл
@@ -28,73 +26,47 @@ loop для каждого JSON файла
 end
 ML --> SBS: вернуть vector<BuildingModel>
 deactivate ML
-SBS -> SBS: сохранить доступные модели
-SBS -> SBS: инициализировать randomEngine
 SBS --> CM: вернуть SmartBuildingSelector
 deactivate SBS
 CM--
 
 Пользователь -> CM: generate(площадьГорода)
 activate CM
-CM -> CM: сохранить площадьГорода
 CM -> RG: generate(площадьГорода)
 activate RG
 RG -> RG: генерировать сеть дорог
 RG -> RR: создать ResidentialRoad(начало, конец, ширина)
 activate RR
-RR -> RR: инициализировать геометрию
+RR <- RR: инициализировать геометрию
 deactivate RR
-RG -> BR: создать BlockSeparatorRoad(начало, конец, ширина)
-activate BR
-BR <- BR: инициализировать геометрию
-deactivate BR
 RG --> CM: вернуть vector<AbstractRoad>
 deactivate RG
 
-CM -> CM: сохранить дороги
 CM -> CM: placeBuildingsOnRoads()
 loop для каждой дороги
     CM -> RR: divideIntoPlots(участки)
     activate RR
-    RR -> RR: вычислить участки застройки
-    RR -> RR: определить стороны для размещения зданий
+    RR <- RR: вычислить участки застройки
     RR --> CM: вернуть vector<pair<QRectF, int>>
     deactivate RR
     loop для каждого участка
         CM -> SBS: select(доступнаяОбласть)
         activate SBS
-        SBS -> SBS: выбрать подходящую модель здания
-        SBS -> SBS: определить размеры здания по доступной области
+        SBS -> SBS: выбрать подходящую по размерам модель здания
         SBS -> SBS: построить GraphicObject из модели
         SBS --> CM: вернуть GraphicObject здания
         deactivate SBS
         CM -> RR: calculateGlobalPosition()
         activate RR
-        RR -> RR: вычислить глобальную позицию для здания
+        RR <- RR: вычислить глобальную позицию для здания
         RR --> CM: вернуть QVector3D позиции
         deactivate RR
         CM -> RR: addBuildingMesh(здание)
         activate RR
-        RR -> RR: добавить здание к дороге
+        RR <- RR: добавить здание к дороге
         deactivate RR
     end
 end
-deactivate CM
-
-Пользователь -> CM: exportToScene()
-activate CM
-CM -> CM: собрать все модели
-loop для каждой дороги
-    CM -> RR: getRoadMesh()
-    activate RR
-    RR --> CM: вернуть GraphicObject дороги
-    deactivate RR
-    CM -> RR: getBuildingMeshes()
-    activate RR
-    RR --> CM: вернуть vector<GraphicObject> зданий
-    deactivate RR
-end
-CM --> Пользователь: вернуть vector<GraphicObject>
 deactivate CM
 
 @enduml

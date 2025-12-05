@@ -232,3 +232,35 @@
 \emergencystretch=10pt
 \hyphenpenalty=50
 \exhyphenpenalty=50
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstdefinestyle{mydefault}{
+    frame=single,
+    xleftmargin=0.4cm,
+    framexleftmargin=-0.3cm,
+    framesep=0.3cm,
+    linewidth=\dimexpr\linewidth-0.7cm\relax,
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    tabsize=2
+}
+
+\lstnewenvironment{mylisting}[3][]{
+    \lstset{
+        style=mydefault,
+        caption={#2},
+        label={#3},
+        #1
+    }
+}{}
+
+% для автоматизации реферата
+\usepackage{lastpage}
+\usepackage[figure,table,enumiv]{totalcount}
+
+\usepackage{sidecap} % для боковых подписей
+\usepackage{
+    rotating
+} % для боковых подписей

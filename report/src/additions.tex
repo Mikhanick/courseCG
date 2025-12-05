@@ -1,6 +1,59 @@
-%\renewcommand{\thechapter}{А}
-%\ssr{ПРИЛОЖЕНИЕ А}
+\renewcommand{\thechapter}{А}
+\ssr{ПРИЛОЖЕНИЕ А}
 
-% Переопределяем формат нумерации таблиц
-%\renewcommand{\thetable}{\thechapter.\arabic{table}}
-%\setcounter{table}{0} % Сбрасываем счётчик таблиц
+%Переопределяем формат нумерации таблиц
+\renewcommand{\thetable}{\thechapter.\arabic{table}}
+\setcounter{table}{0} % Сбрасываем счётчик таблиц
+\section*{UML-диаграммы классов}
+\clearpage
+\label{app:umlki}
+\begin{figure}[H]
+    \centering
+    \rotatebox{90}{
+        \begin{minipage}{0.835\textheight}
+            \centering
+            \includegraphics[width=0.85\linewidth]{CityClassDiagram}
+            \captionof{figure}{Диаграмма классов домена генерации городской среды}
+            \label{fig:CityDomain}
+        \end{minipage}
+    }
+\end{figure}
+
+
+
+\begin{figure}[H]
+    \centering
+    \rotatebox{90}{
+        \begin{minipage}{0.9\textheight}
+            \centering
+            \includegraphics[width=0.95\linewidth]{RendererCore.pdf}
+            \captionof{figure}{Диаграмма классов домена отрисовки, ч. 1}
+            \label{fig:RendererCore}
+        \end{minipage}
+    }
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \rotatebox{90}{
+        \begin{minipage}{0.8\textheight}
+            \centering
+            \includegraphics[width=\linewidth]{Rasterization}
+            \captionof{figure}{Диаграмма классов домена отрисовки, ч. 2}
+            \label{fig:Rasterization}
+        \end{minipage}
+    }
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \rotatebox{90}{
+        \begin{minipage}{0.87\textheight}
+            \centering
+            \includegraphics[width=\linewidth]{SceneComposition}
+            \captionof{figure}{Диаграмма классов домена отрисовки, ч. 3}
+            \label{fig:SceneComposition}
+        \end{minipage}
+    }
+\end{figure}
+\newpage

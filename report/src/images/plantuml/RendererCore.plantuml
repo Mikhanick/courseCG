@@ -6,9 +6,6 @@ skinparam classAttributeIconSize 0
 class Renderer {
   -int m_width
   -int m_height
-  -float m_fov
-  -float m_near
-  -float m_far
   -bool m_forceBufferRecreation
   -int m_shadowMapWidth
   -int m_shadowMapHeight
@@ -26,8 +23,6 @@ class Renderer {
   +int GetShadowMapWidth() const
   +int GetShadowMapHeight() const
   +void UpdateShadowBuffers(const Scene& scene)
-  +void SetFOV(float fov)
-  +float GetFOV() const
 }
 
 abstract class ScreenBuffer {
@@ -37,7 +32,7 @@ abstract class ScreenBuffer {
   -std::unique_ptr<ProjectionStrategy> projection
   +ScreenBuffer(int w, int h, CameraPtr cam,\n std::unique_ptr<ProjectionStrategy> proj)
   +virtual void Clear() = 0
-  +bool Project(const QVector3D& worldPos, float& outX,\nfloat& outY, float& outDepth, float& outW) const
+  +bool Project(const QVector3D& worldPos, float& outX,float& outY, float& outDepth, float& outW) const
   +bool InBounds(int x, int y) const
 }
 
