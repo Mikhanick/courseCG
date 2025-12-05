@@ -22,7 +22,6 @@ abstract class AbstractRoad {
     +{abstract} QVector3D getStart() const
     +{abstract} QVector3D getEnd() const
     +{abstract} RoadType getType() const
-    +{abstract} float getTypeWeight() const
     +{abstract} void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const
     +{abstract} QVector3D calculateGlobalPosition(const QRectF& plot, \n const QVector3D& buildingSize, bool isLeftSide = true) const
     +{abstract} QVector3D calculateNormal() const

@@ -27,8 +27,6 @@ public:
     // Тип дороги
     virtual RoadType getType() const = 0;
 
-    // Вес для распределения (например, 1.0 для жилых, 0.3 для магистралей)
-    virtual float getTypeWeight() const = 0;
 
     // Размещение зданий
     virtual void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const = 0;

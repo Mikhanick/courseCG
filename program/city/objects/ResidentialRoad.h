@@ -22,9 +22,6 @@ public:
     // Тип дороги
     RoadType getType() const override { return RoadType::RESIDENTIAL; }
 
-    // Вес для распределения - всегда 1.0 для жилых дорог
-    float getTypeWeight() const override;
-
     // Размещение зданий
     void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const override;
     QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide = true) const override;

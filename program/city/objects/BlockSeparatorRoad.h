@@ -19,9 +19,6 @@ public:
     // Тип дороги
     RoadType getType() const override { return RoadType::BLOCK_SEPARATOR; }
 
-    // Вес для распределения - всегда 0, так как не размещает дома
-    float getTypeWeight() const override;
-
     // Размещение зданий - пустая реализация, не размещает здания
     void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const override;
     QVector3D calculateGlobalPosition(const QRectF& plot, const QVector3D& buildingSize, bool isLeftSide = true) const override;

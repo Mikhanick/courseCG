@@ -5,7 +5,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
-#include "../../GlobalRandom.h"  // Include global random functionality
+#include "../../GlobalRandom.h"
 
 namespace City {
 
@@ -21,7 +21,6 @@ float ResidentialRoad::getWidth() const { return m_width; }
 float ResidentialRoad::getLength() const {
     return QVector3D(m_end - m_start).length();
 }
-float ResidentialRoad::getTypeWeight() const { return 1.0f; }
 
 void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear();

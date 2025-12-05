@@ -154,8 +154,6 @@ void TriangleRasterizer::DrawTriangle(const QVector3D &p0,
                 float finalW = 1.0f / interpolated_invW;
                 QVector3D worldPos = interpolated_p_over_w * finalW;
 
-                // Z-буфер: можно интерполировать либо линейно z (в NDC), либо перспективно — зависит от системы
-                // Здесь для простоты оставим линейную интерполяцию z (в NDC-пространстве, после /w)
                 float depth = z0 * w0 + z1 * w1 + z2 * w2;
 
                 FragmentData fragment{x, y, depth, worldPos};

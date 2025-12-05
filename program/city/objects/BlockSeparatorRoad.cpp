@@ -18,9 +18,6 @@ float BlockSeparatorRoad::getLength() const {
     return QVector3D(m_end - m_start).length();
 }
 
-// Вес всегда 0, так как не размещает дома
-float BlockSeparatorRoad::getTypeWeight() const { return 0.0f; }
-
 // Размещение зданий - пустая реализация, не размещает здания
 void BlockSeparatorRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const {
     plots.clear(); // Не создаем участки для строительства

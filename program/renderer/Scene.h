@@ -27,10 +27,8 @@ public:
         }
     }
 
-    // Function to calculate the bounding box of all objects in the scene
     void getBounds(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ) const {
         if (objects.empty()) {
-            // Default values if no objects
             minX = minY = minZ = -10.0f;
             maxX = maxY = maxZ = 10.0f;
             return;
@@ -53,10 +51,8 @@ public:
         }
     }
 
-    // Function to calculate the full extent of the scene for ground sizing
     void getSceneExtent(float& minX, float& minZ, float& maxX, float& maxZ) const {
         if (objects.empty()) {
-            // Default values if no objects
             minX = minZ = -50.0f;
             maxX = maxZ = 50.0f;
             return;

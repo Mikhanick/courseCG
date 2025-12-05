@@ -21,7 +21,6 @@ public:
 
     virtual void Clear() = 0;
 
-    // Изменённая версия: возвращает outX, outY, outDepth, И outW (clip.w)
     bool Project(
         const QVector3D& worldPos,
         float& outX,
@@ -36,7 +35,6 @@ public:
             return false;
         }
 
-        // Проверка на деление на ноль
         if (clipW == 0.0f) return false;
 
         // Преобразуем в NDC
@@ -44,7 +42,6 @@ public:
         float ndcY = clipY / clipW;
         float ndcZ = clipZ / clipW;
 
-        // Отсечение в NDC — опционально, но рекомендуется
         if (ndcZ < -1.0f || ndcZ > 1.0f) {
             return false;
         }
@@ -54,7 +51,7 @@ public:
         outY = (1.0f - (ndcY + 1.0f) * 0.5f) * height; // [-1,1] → [0,height], инверсия Y
         outDepth = (ndcZ + 1.0f) * 0.5f;         // [-1,1] → [0,1]
 
-        // Возвращаем исходный w — нужен для интерполяции!
+        // Возвращаем исходный w — нужен для интерполяции
         outW = clipW;
 
         return true;

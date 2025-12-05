@@ -17,10 +17,8 @@ class Renderer
     float m_near = 0.1f;
     float m_far = 1500.0f;
 
-    // Flag to force buffer recreation (useful when FOV changes)
     bool m_forceBufferRecreation = false;
 
-    // Shadow map dimensions - initially set to default size
     int m_shadowMapWidth = 30000;
     int m_shadowMapHeight = 30000;
 
@@ -31,7 +29,6 @@ class Renderer
 
     std::vector<std::unique_ptr<ZBuffer>> shadowZBuf;
 
-    // Light multipliers for final rendering (instead of absolute color values)
     float m_lightRedMultiplier = 1.0f;
     float m_lightGreenMultiplier = 1.0f;
     float m_lightBlueMultiplier = 1.0f;
@@ -40,29 +37,28 @@ public:
     Renderer(int width, int height);
     void Render(const Scene &scene, QImage &image);
 
-    // Methods to get and set shadow map size (for runtime adjustment)
     void SetShadowMapSize(int width, int height);
     int GetShadowMapWidth() const { return m_shadowMapWidth; }
     int GetShadowMapHeight() const { return m_shadowMapHeight; }
 
-    // Method to update shadow buffers based on scene extent (for runtime adjustment)
-    void UpdateShadowBuffers(const Scene& scene);
+    void UpdateShadowBuffers(const Scene &scene);
 
-    // Methods to get and set FOV
-    void SetFOV(float fov) { m_fov = fov; m_forceBufferRecreation = true; }  // Force recreation when FOV changes
+    void SetFOV(float fov)
+    {
+        m_fov = fov;
+        m_forceBufferRecreation = true;
+    }
     float GetFOV() const { return m_fov; }
 
-    // Method to force buffer recreation (useful when parameters like FOV change)
     void ForceBufferRecreation() { m_forceBufferRecreation = true; }
 
-    // Methods to set light multipliers
-    void SetLightMultipliers(float red, float green, float blue) {
+    void SetLightMultipliers(float red, float green, float blue)
+    {
         m_lightRedMultiplier = red;
         m_lightGreenMultiplier = green;
         m_lightBlueMultiplier = blue;
     }
 
-    // Methods to get light multipliers
     float GetLightRedMultiplier() const { return m_lightRedMultiplier; }
     float GetLightGreenMultiplier() const { return m_lightGreenMultiplier; }
     float GetLightBlueMultiplier() const { return m_lightBlueMultiplier; }
@@ -71,21 +67,22 @@ private:
     void EnsureBuffers(const Scene &scene);
     void WriteToImage(QImage &image);
 
-    template<RasterCommand_v Command>
+    template <RasterCommand_v Command>
     void RenderScene(const Scene &scene, Command &command, const QVector3D &cameraPos, bool needsBackCool = true);
 };
 
-
-template<RasterCommand_v Command>
-void Renderer::RenderScene(const Scene &scene, Command &command,const QVector3D &cameraPos, bool needBackCool)
+template <RasterCommand_v Command>
+void Renderer::RenderScene(const Scene &scene, Command &command, const QVector3D &cameraPos, bool needBackCool)
 {
     if (!scene.camera)
         return;
 
     TriangleRasterizer rasterizer;
 
-    for (const auto &obj : scene.objects) {
-        for (const auto &face : obj->faces) {
+    for (const auto &obj : scene.objects)
+    {
+        for (const auto &face : obj->faces)
+        {
             if (obj->points.empty())
                 continue;
 
@@ -98,9 +95,8 @@ void Renderer::RenderScene(const Scene &scene, Command &command,const QVector3D 
             }
 
             // Проверка индексов
-            if (static_cast<size_t>(face.index0) >= obj->points.size()
-                || static_cast<size_t>(face.index1) >= obj->points.size()
-                || static_cast<size_t>(face.index2) >= obj->points.size()) {
+            if (static_cast<size_t>(face.index0) >= obj->points.size() || static_cast<size_t>(face.index1) >= obj->points.size() || static_cast<size_t>(face.index2) >= obj->points.size())
+            {
                 continue;
             }
 

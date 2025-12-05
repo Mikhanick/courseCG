@@ -24,8 +24,7 @@ float DirectionalLight::ComputeShadowFactor(
     ) const {
     if (!shadowZBuffer) return 1.0f;
 
-    float x, y, depth, w;  // ← ДОБАВЛЕНО: w
-    // Передаём 4 параметра в Project
+    float x, y, depth, w;
     if (!shadowZBuffer->Project(worldPos, x, y, depth, w) || !shadowZBuffer->InBounds(x, y)) {
         return 1.0f;
     }
