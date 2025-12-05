@@ -12,7 +12,7 @@ BLUE = \033[34m
 RESET = \033[0m
 
 
-.PHONY: pdf pdf-clean pdf-synctex lint-tex open-pdf generate-plantuml check-tools
+.PHONY: pdf clean pdf-synctex lint-tex open-pdf generate-plantuml check-tools
 
 # ===== PDF REPORT BUILD CONFIGURATION =====
 PDF_BUILD_DIR := $(PDF_BUILD_DIR_NAME)
@@ -60,7 +60,7 @@ LINT_MARKER := $(PDF_BUILD_DIR)/.linted
 # ===== PDF REPORT BUILD RULES =====
 pdf: check-tools generate-plantuml $(PDF_GENERATED_TABLES) $(PDF_TARGET)
 
-pdf-synctex: pdf-clean $(LINT_MARKER) $(PDF_GENERATED_TABLES) $(BUILD_IMAGE_FILES)
+pdf-synctex: clean $(LINT_MARKER) $(PDF_GENERATED_TABLES) $(BUILD_IMAGE_FILES)
 	@echo "=== Сборка PDF отчёта с synctex ==="
 	pdflatex -synctex=1 \
 		-output-directory=$(PDF_BUILD_DIR) \
@@ -157,6 +157,43 @@ open-pdf: pdf
 		echo -e "$(RED)PDF-файл не найден: $(PDF_TARGET)$(RESET)"; \
 	fi
 
-pdf-clean:
+clean:
 	@echo "Очистка PDF build-директории и сгенерированных файлов..."
 	@rm -rf $(PDF_BUILD_DIR)
+
+
+%report.pdf: $(PDF_TARGET)
+	@mkdir -p $(dir $@)
+	cp -u $(PDF_TARGET) $@
+
+
+copy-pdf-to-clipboard: $(PDF_TARGET)
+	@FILE=$(PDF_TARGET); \
+	if [ -z "$$FILE" ]; then \
+		echo "❌ ОШИБКА: Укажите файл: make copy-pdf-to-clipboard FILE=build/report.pdf"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$$FILE" ]; then \
+		echo "❌ ОШИБКА: Файл '$$FILE' не существует"; \
+		exit 1; \
+	fi; \
+	\
+	ABS_PATH=$$(realpath "$$FILE"); \
+	URI="file://$$ABS_PATH"; \
+	\
+	if [ "$$XDG_SESSION_TYPE" = "wayland" ] && command -v wl-copy >/dev/null; then \
+		echo "$$URI" | wl-copy --type text/uri-list -n; \
+		echo "✅ PDF '$$FILE' скопирован в буфер обмена (Wayland)"; \
+		exit 0; \
+	fi; \
+	\
+	if command -v xclip >/dev/null; then \
+		echo "$$URI" | xclip -selection clipboard -t text/uri-list -i; \
+		echo "✅ PDF '$$FILE' скопирован в буфер обмена (X11)"; \
+		exit 0; \
+	fi; \
+	\
+	echo "❌ ОШИБКА: Нет утилит для копирования файлов в буфер обмена"; \
+	echo "   • Для Wayland: sudo pacman -S wl-clipboard"; \
+	echo "   • Для X11: sudo pacman -S xclip"; \
+	exit 1

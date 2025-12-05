@@ -1,5 +1,8 @@
 @startuml
 title Процесс создания города
+skinparam ParticipantPadding 20
+skinparam maxMessageSize 160
+
 
 actor Пользователь
 participant "CityMap" as CM
@@ -43,7 +46,7 @@ RR -> RR: инициализировать геометрию
 deactivate RR
 RG -> BR: создать BlockSeparatorRoad(начало, конец, ширина)
 activate BR
-BR -> BR: инициализировать геометрию
+BR <- BR: инициализировать геометрию
 deactivate BR
 RG --> CM: вернуть vector<AbstractRoad>
 deactivate RG
