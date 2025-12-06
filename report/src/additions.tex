@@ -1,11 +1,15 @@
 \renewcommand{\thechapter}{А}
+\appendix
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Asbuk{section}} 
+\refstepcounter{section} 
 \ssr{ПРИЛОЖЕНИЕ А}
-
 %Переопределяем формат нумерации таблиц
 \renewcommand{\thetable}{\thechapter.\arabic{table}}
 \setcounter{table}{0} % Сбрасываем счётчик таблиц
-\section*{UML-диаграммы классов}
-\clearpage
+\setcounter{figure}{0} % Сбрасываем счётчик рисунков
+
+
 \label{app:umlki}
 \begin{figure}[H]
     \centering
