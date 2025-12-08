@@ -33,7 +33,7 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
 
     // Гибкие параметры ширины участков (вдоль дороги)
     const float minPlotWidth = 8.0f; // Минимальная ширина (для узких таунхаусов)
-    const float maxPlotWidth = 80.0f; // Максимальная ширина (для длинных домов/особняков)
+    const float maxPlotWidth = 90.0f; // Максимальная ширина (для длинных домов/особняков)
 
     float roadLength = getLength();
     float buildableStart = edgeBuffer;
@@ -93,7 +93,7 @@ void ResidentialRoad::divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots
             isFirstPlot = false;
 
             // 6. СЛУЧАЙНЫЙ ПРОМЕЖУТОК
-            float minGap = 7.5f;
+            float minGap = 9.5f;
             float maxGap = 16.0f;
             float gap = minGap + randFloat() * (maxGap - minGap);
 
