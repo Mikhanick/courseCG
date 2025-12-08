@@ -35,7 +35,7 @@
 
 Основными типами аффинных преобразований, применяемых к трехмерным моделям, являются:
 
-\subsection{Перенос}
+\subsection*{Перенос}
 Преобразование переноса смещает все точки модели на заданный вектор $\mathbf{T} = (t_x, t_y, t_z)$:
 \begin{equation}
 	\mathbf{T}(t_x, t_y, t_z) = \begin{bmatrix}
@@ -48,7 +48,7 @@
 
 где $t_x$, $t_y$, $t_z$ -- компоненты вектора переноса вдоль соответствующих осей координат.
 
-\subsection{Масштабирование}
+\subsection*{Масштабирование}
 Преобразование масштабирования изменяет размеры модели относительно начала координат:
 \begin{equation}
 	\mathbf{S}(s_x, s_y, s_z) = \begin{bmatrix}
@@ -61,7 +61,7 @@
 
 где $s_x$, $s_y$, $s_z$ -- коэффициенты масштабирования по осям $x$, $y$ и $z$ соответственно.
 
-\subsection{Вращение}
+\subsection*{Вращение}
 Вращение модели вокруг оси $x$ на угол $\theta$ описывается матрицей:
 \begin{equation}
 	\mathbf{R}_x(\theta) = \begin{bmatrix}
@@ -71,6 +71,8 @@
 		0 & 0 & 0 & 1
 	\end{bmatrix}.
 \end{equation}
+\newline  
+
 Вращение вокруг оси $y$:
 \begin{equation}
 	\mathbf{R}_y(\theta) = \begin{bmatrix}
@@ -80,6 +82,8 @@
 		0 & 0 & 0 & 1
 	\end{bmatrix}.
 \end{equation}
+\newline  
+
 Вращение вокруг оси $z$:
 \begin{equation}
 	\mathbf{R}_z(\theta) = \begin{bmatrix}
