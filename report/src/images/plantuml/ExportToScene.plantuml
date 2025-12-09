@@ -2,7 +2,11 @@
 skinparam ParticipantPadding 15
 skinparam maxMessageSize 160
 skinparam defaultFontSize 16
-
+skinparam participant {
+    FontName "Courier New"
+    FontSize 16
+    FontStyle bold
+}
 actor Пользователь
 participant "CityMap" as CM
 participant "AbstractRoadGenerationStrategy" as RG

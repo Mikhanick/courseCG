@@ -1,9 +1,12 @@
 @startuml
-title Процесс создания города
 skinparam ParticipantPadding 23
-skinparam maxMessageSize 210
-skinparam defaultFontSize 17
-
+skinparam maxMessageSize 180
+skinparam defaultFontSize 18
+skinparam participant {
+    FontName "Courier New"
+    FontSize 20
+    FontStyle bold
+}
 actor Пользователь
 participant "CityMap" as CM
 participant "AbstractRoadGenerationStrategy" as RG
@@ -62,9 +65,6 @@ loop для каждой дороги
         RR --> CM: вернуть QVector3D позиции
         deactivate RR
         CM -> RR: addBuildingMesh(здание)
-        activate RR
-        RR <- RR: добавить здание к дороге
-        deactivate RR
     end
 end
 deactivate CM

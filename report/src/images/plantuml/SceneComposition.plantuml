@@ -11,8 +11,6 @@ class Scene {
   +void AddObject(GraphicObject* obj)
   +void AddLight(Light* light)
   +void MarkAllShadowMapsDirty()
-  +void getBounds(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ) const
-  +void getSceneExtent(float& minX, float& minZ, float& maxX, float& maxZ) const
 }
 
 class Camera {
@@ -20,12 +18,8 @@ class Camera {
   -QVector3D target
   -QVector3D up
   +Camera(const QVector3D& pos, const QVector3D& tgt, const QVector3D& u)
-  +QMatrix4x4 GetViewMatrix() const
   +void SetPosition(const QVector3D& pos)
   +void SetTarget(const QVector3D& tgt)
-  +QVector3D GetPosition() const
-  +QVector3D GetTarget() const
-  +QVector3D GetUp() const
 }
 
 abstract class Light {
@@ -34,7 +28,6 @@ abstract class Light {
   -std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width, \n int height, std::unique_ptr<ProjectionStrategy> proj) const
   -bool NeedsShadowMap() const
   -void MarkShadowMapDirty()
-  -CameraPtr GetCamera() const
   +{abstract} ~Light()
 }
 
@@ -51,9 +44,6 @@ class DirectionalLight {
   +std::unique_ptr<ZBuffer> CreateShadowZBuffer(int width, int height, std::unique_ptr<ProjectionStrategy> proj) const override
   +bool NeedsShadowMap() const override
   +void MarkShadowMapDirty() override
-  +CameraPtr GetCamera() const override
-  +QColor GetColor() const
-  +QVector3D GetDirection() const
 }
 
 class GraphicObject {

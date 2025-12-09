@@ -20,8 +20,6 @@ class Renderer {
   +Renderer(int width, int height)
   +void Render(const Scene &scene, QImage &image)
   +void SetShadowMapSize(int width, int height)
-  +int GetShadowMapWidth() const
-  +int GetShadowMapHeight() const
   +void UpdateShadowBuffers(const Scene& scene)
 }
 
@@ -43,7 +41,6 @@ class ZBuffer {
   +float& At(int x, int y)
   +float At(int x, int y) const
   +inline bool ZTestAndUpdate(int x, int y, float depth)
-  +inline float GetDepthDifference(const QVector3D& worldPos) const
 }
 
 class ColorBuffer {

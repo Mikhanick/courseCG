@@ -9,7 +9,6 @@ class TriangleRasterizer {
 }
 
 interface RasterCommand_v {
-  +QRectF GetViewport()
   +bool Project(QVector3D worldPos, float x, float y, float z, float w)
   +bool Execute(FragmentData frag)
   +void setColor(QColor color)
@@ -19,7 +18,6 @@ interface RasterCommand_v {
 class ZBufferRasterCommand {
   -ZBuffer *zBuffer
   +ZBufferRasterCommand(ZBuffer *zb)
-  +QRectF GetViewport() const
   +bool Project(QVector3D worldPos, float x, float y, float z, float w) const
   +bool Execute(FragmentData frag)
   +void setColor(QColor color)
@@ -30,7 +28,6 @@ class ColorWriteCommand {
   -ColorBuffer *colorBuffer
   -QColor color
   +ColorWriteCommand(ColorBuffer *cb, QColor c)
-  +QRectF GetViewport() const
   +bool Project(QVector3D worldPos, float x, float y, float z, float w)
   +bool Execute(FragmentData frag)
   +void setColor(QColor clr)
@@ -43,7 +40,6 @@ class ShadeWriteCommand {
   -const std::vector<std::unique_ptr<ZBuffer>> &shadowZBuffers
   -QVector3D normal
   +ShadeWriteCommand(ShadeBuffer *sb, Scene *s,\n std::vector<std::unique_ptr<ZBuffer>> &shadows, QVector3D n)
-  +QRectF GetViewport() const
   +bool Project(QVector3D worldPos, float x, float y, float z, float w)
   +bool Execute(FragmentData frag)
   +void setNormal(QVector3D n)
@@ -55,7 +51,6 @@ class ComplexWriteCommand {
   -ColorWriteCommand &colorWriter
   -ShadeWriteCommand &shadeWriter
   +ComplexWriteCommand(ZBufferRasterCommand &zcmd,\n ColorWriteCommand &cw, ShadeWriteCommand &sw)
-  +QRectF GetViewport() const
   +bool Project(QVector3D worldPos, float x, float y, float z, float w)
   +bool Execute(FragmentData frag)
   +void setColor(QColor clr)

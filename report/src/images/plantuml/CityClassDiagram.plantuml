@@ -19,14 +19,9 @@ enum BuildingSide {
 ' Abstract base classes
 abstract class AbstractRoad {
     +{abstract} ~AbstractRoad()
-    +{abstract} QVector3D getStart() const
-    +{abstract} QVector3D getEnd() const
-    +{abstract} RoadType getType() const
     +{abstract} void divideIntoPlots(std::vector<std::pair<QRectF, int>>& plots) const
     +{abstract} QVector3D calculateGlobalPosition(const QRectF& plot, \n const QVector3D& buildingSize, bool isLeftSide = true) const
     +{abstract} QVector3D calculateNormal() const
-    +{abstract} GraphicObject getRoadMesh() const
-    +{abstract} std::vector<GraphicObject> getBuildingMeshes() const
     +{abstract} void addBuildingMesh(GraphicObject&& building)
     +{abstract} AbstractRoad clone() const
 }
@@ -70,8 +65,6 @@ class SmartBuildingSelector {
     +GraphicObject select(const QRectF& availableArea) override
     -BuildingModel chooseBestModel(const QSizeF& availableSize) const
     -GraphicObject buildFromModel(const BuildingModel& model,\n const QSizeF& baseSize) const
-    -QSizeF getBaseDimensions(const FloorSection& section) const
-    -float getSectionHeight(const FloorSection& section) const
 }
 
 ' Road generation strategy implementations
