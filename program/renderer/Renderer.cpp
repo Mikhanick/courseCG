@@ -27,7 +27,7 @@ void Renderer::UpdateShadowBuffers(const Scene &scene)
     float minX, minZ, maxX, maxZ;
     scene.getSceneExtent(minX, minZ, maxX, maxZ);
 
-    const float margin = 500.0f;
+    const float margin = 1300.0f;
     float orthoLeft = minX + margin;
     float orthoRight = maxX + margin;
     float orthoBottom = minZ + margin;
